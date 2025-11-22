@@ -108,6 +108,111 @@ app.post('/auth/login', async (req, res) => {
   }
 });
 
+// --------- Usuários (Configurações) ----------
+
+// Lista todos os usuários para a tela de Configurações
+app.get('/usuarios', authMiddleware, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id, nome, email, tipo, ativo
+       FROM usuarios
+       ORDER BY id ASC`
+    );
+
+    // Sempre devolve 200 com array (mesmo vazio)
+    return res.json(result.rows);
+  } catch (err) {
+    console.error('Erro em GET /usuarios:', err);
+    return res.status(500).json({ error: 'Erro ao listar usuários.' });
+  }
+});
+
+// Cria um novo usuário "solicitante" a partir da Configuração
+app.post('/usuarios', authMiddleware, async (req, res) => {
+  try {
+    const { nome, email, tipo } = req.body;
+
+    if (!nome || !email) {
+      return res
+        .status(400)
+        .json({ error: 'Nome e e-mail são obrigatórios.' });
+    }
+
+    // Garante que não exista e-mail duplicado
+    const userExists = await db.query(
+      'SELECT id FROM usuarios WHERE email = $1',
+      [email]
+    );
+    if (userExists.rows.length > 0) {
+      return res.status(400).json({ error: 'E-mail já cadastrado.' });
+    }
+
+    // Define um tipo padrão e uma senha padrão (ex.: 123456)
+    const userTipo =
+      tipo && ['admin', 'user'].includes(tipo.toLowerCase())
+        ? tipo.toLowerCase()
+        : 'user';
+
+    const senhaPadrao = '123456'; // se quiser, troca depois
+    const senhaHash = await bcrypt.hash(senhaPadrao, 10);
+
+    const result = await db.query(
+      `INSERT INTO usuarios (nome, email, senha_hash, tipo, ativo)
+       VALUES ($1, $2, $3, $4, true)
+       RETURNING id, nome, email, tipo, ativo`,
+      [nome, email, senhaHash, userTipo]
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Erro em POST /usuarios:', err);
+    return res.status(500).json({ error: 'Erro ao criar usuário.' });
+  }
+});
+
+// Atualiza um usuário existente (nome, e-mail, tipo, ativo)
+app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nome, email, tipo, ativo } = req.body;
+
+    const result = await db.query(
+      `UPDATE usuarios
+       SET
+         nome  = COALESCE($1, nome),
+         email = COALESCE($2, email),
+         tipo  = COALESCE($3, tipo),
+         ativo = COALESCE($4, ativo)
+       WHERE id = $5
+       RETURNING id, nome, email, tipo, ativo`,
+      [nome || null, email || null, tipo || null, ativo, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Erro em PATCH /usuarios/:id:', err);
+    return res.status(500).json({ error: 'Erro ao atualizar usuário.' });
+  }
+});
+
+// Remove um usuário (se não estiver sendo referenciado por FK, etc.)
+app.delete('/usuarios/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await db.query('DELETE FROM usuarios WHERE id = $1', [id]);
+    return res.status(204).send();
+  } catch (err) {
+    console.error('Erro em DELETE /usuarios/:id:', err);
+    return res.status(500).json({ error: 'Erro ao excluir usuário.' });
+  }
+});
+
+
 // Quem sou eu (útil pro front validar sessão)
 app.get('/auth/me', authMiddleware, (req, res) => {
   return res.json({ user: req.user });
