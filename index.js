@@ -235,6 +235,212 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// ===================== USUÁRIOS ======================
+app.get('/usuarios', authMiddleware, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id, nome, email, tipo, ativo, telefone, cpfCnpj
+       FROM usuarios
+       ORDER BY id ASC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Erro em GET /usuarios:', err);
+    res.status(500).json({ error: 'Erro ao listar usuários.' });
+  }
+});
+
+app.post('/usuarios', authMiddleware, async (req, res) => {
+  try {
+    const { nome, email, telefone, cpf, cpfCnpj, tipo } = req.body;
+
+    const result = await db.query(
+      `INSERT INTO usuarios (nome, email, telefone, cpfCnpj, tipo, ativo)
+       VALUES ($1,$2,$3,$4,$5,true)
+       RETURNING id, nome, email, telefone, cpfCnpj, tipo, ativo`,
+      [nome, email || null, telefone || null, cpfCnpj || cpf || null, tipo || 'user']
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Erro em POST /usuarios:', err);
+    res.status(500).json({ error: 'Erro ao criar usuário.' });
+  }
+});
+
+app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { nome, email, telefone, cpfCnpj, tipo, ativo } = req.body;
+
+    const result = await db.query(
+      `UPDATE usuarios
+       SET nome = COALESCE($1, nome),
+           email = COALESCE($2, email),
+           telefone = COALESCE($3, telefone),
+           cpfCnpj = COALESCE($4, cpfCnpj),
+           tipo = COALESCE($5, tipo),
+           ativo = COALESCE($6, ativo)
+       WHERE id = $7
+       RETURNING id, nome, email, telefone, cpfCnpj, tipo, ativo`,
+      [nome, email, telefone, cpfCnpj, tipo, ativo, id]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Erro em PATCH /usuarios:', err);
+    res.status(500).json({ error: 'Erro ao atualizar usuário.' });
+  }
+});
+
+app.delete('/usuarios/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    await db.query(`DELETE FROM usuarios WHERE id = $1`, [id]);
+
+    res.status(204).send();
+  } catch (err) {
+    console.error('Erro em DELETE /usuarios:', err);
+    res.status(500).json({ error: 'Erro ao excluir usuário.' });
+  }
+});
+
+// ===================== DESCRICOES ======================
+app.get('/descricoes', authMiddleware, async (req, res) => {
+  try {
+    const r = await db.query(
+      `SELECT id, descricao, ativo
+       FROM descricoes
+       ORDER BY id ASC`
+    );
+    res.json(r.rows);
+  } catch (err) {
+    console.error('Erro GET /descricoes:', err);
+    res.status(500).json({ error: 'Erro ao listar descrições.' });
+  }
+});
+
+app.post('/descricoes', authMiddleware, async (req, res) => {
+  try {
+    const { descricao, ativo } = req.body;
+
+    const r = await db.query(
+      `INSERT INTO descricoes (descricao, ativo)
+       VALUES ($1,$2)
+       RETURNING id, descricao, ativo`,
+      [descricao, ativo ?? true]
+    );
+
+    res.status(201).json(r.rows[0]);
+  } catch (err) {
+    console.error('Erro POST /descricoes:', err);
+    res.status(500).json({ error: 'Erro ao criar descrição.' });
+  }
+});
+
+app.patch('/descricoes/:id', authMiddleware, async (req, res) => {
+  try {
+    const { descricao, ativo } = req.body;
+    const id = req.params.id;
+
+    const r = await db.query(
+      `UPDATE descricoes
+       SET descricao = COALESCE($1, descricao),
+           ativo = COALESCE($2, ativo)
+       WHERE id = $3
+       RETURNING id, descricao, ativo`,
+      [descricao, ativo, id]
+    );
+
+    res.json(r.rows[0]);
+  } catch (err) {
+    console.error('Erro PATCH /descricoes:', err);
+    res.status(500).json({ error: 'Erro ao atualizar descrição.' });
+  }
+});
+
+app.delete('/descricoes/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    await db.query(`DELETE FROM descricoes WHERE id = $1`, [id]);
+
+    res.status(204).send();
+  } catch (err) {
+    console.error('Erro DELETE /descricoes:', err);
+    res.status(500).json({ error: 'Erro ao excluir descrição.' });
+  }
+});
+
+// ===================== STATUS ======================
+app.get('/status', authMiddleware, async (req, res) => {
+  try {
+    const r = await db.query(
+      `SELECT id, nome AS descricao, ativo
+       FROM status
+       ORDER BY id ASC`
+    );
+    res.json(r.rows);
+  } catch (err) {
+    console.error('Erro GET /status:', err);
+    res.status(500).json({ error: 'Erro ao listar status.' });
+  }
+});
+
+app.post('/status', authMiddleware, async (req, res) => {
+  try {
+    const { nome, descricao, ativo } = req.body;
+
+    const r = await db.query(
+      `INSERT INTO status (nome, ativo)
+       VALUES ($1,$2)
+       RETURNING id, nome AS descricao, ativo`,
+      [descricao || nome, ativo ?? true]
+    );
+
+    res.status(201).json(r.rows[0]);
+  } catch (err) {
+    console.error('Erro POST /status:', err);
+    res.status(500).json({ error: 'Erro ao criar status.' });
+  }
+});
+
+app.patch('/status/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { descricao, ativo } = req.body;
+
+    const r = await db.query(
+      `UPDATE status
+       SET nome = COALESCE($1, nome),
+           ativo = COALESCE($2, ativo)
+       WHERE id = $3
+       RETURNING id, nome AS descricao, ativo`,
+      [descricao, ativo, id]
+    );
+
+    res.json(r.rows[0]);
+  } catch (err) {
+    console.error('Erro PATCH /status:', err);
+    res.status(500).json({ error: 'Erro ao atualizar status.' });
+  }
+});
+
+app.delete('/status/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    await db.query(`DELETE FROM status WHERE id = $1`, [id]);
+
+    res.status(204).send();
+  } catch (err) {
+    console.error('Erro DELETE /status:', err);
+    res.status(500).json({ error: 'Erro ao excluir status.' });
+  }
+});
+
+
 // --------- Healthcheck ----------
 app.get('/', (req, res) => {
   res.send('API Reembolso rodando.');
