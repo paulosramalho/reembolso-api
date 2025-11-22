@@ -1,4 +1,3 @@
-// index.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -212,7 +211,6 @@ app.delete('/usuarios/:id', authMiddleware, async (req, res) => {
   }
 });
 
-
 // Quem sou eu (útil pro front validar sessão)
 app.get('/auth/me', authMiddleware, (req, res) => {
   return res.json({ user: req.user });
@@ -337,77 +335,6 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Erro em PUT /solicitacoes/:id:', err);
     return res.status(500).json({ error: 'Erro ao atualizar solicitação.' });
-  }
-});
-
-// ===================== USUÁRIOS ======================
-app.get('/usuarios', authMiddleware, async (req, res) => {
-  try {
-    const result = await db.query(
-      `SELECT id, nome, email, tipo, ativo, telefone, cpfCnpj
-       FROM usuarios
-       ORDER BY id ASC`
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Erro em GET /usuarios:', err);
-    res.status(500).json({ error: 'Erro ao listar usuários.' });
-  }
-});
-
-app.post('/usuarios', authMiddleware, async (req, res) => {
-  try {
-    const { nome, email, telefone, cpf, cpfCnpj, tipo } = req.body;
-
-    const result = await db.query(
-      `INSERT INTO usuarios (nome, email, telefone, cpfCnpj, tipo, ativo)
-       VALUES ($1,$2,$3,$4,$5,true)
-       RETURNING id, nome, email, telefone, cpfCnpj, tipo, ativo`,
-      [nome, email || null, telefone || null, cpfCnpj || cpf || null, tipo || 'user']
-    );
-
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error('Erro em POST /usuarios:', err);
-    res.status(500).json({ error: 'Erro ao criar usuário.' });
-  }
-});
-
-app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const { nome, email, telefone, cpfCnpj, tipo, ativo } = req.body;
-
-    const result = await db.query(
-      `UPDATE usuarios
-       SET nome = COALESCE($1, nome),
-           email = COALESCE($2, email),
-           telefone = COALESCE($3, telefone),
-           cpfCnpj = COALESCE($4, cpfCnpj),
-           tipo = COALESCE($5, tipo),
-           ativo = COALESCE($6, ativo)
-       WHERE id = $7
-       RETURNING id, nome, email, telefone, cpfCnpj, tipo, ativo`,
-      [nome, email, telefone, cpfCnpj, tipo, ativo, id]
-    );
-
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('Erro em PATCH /usuarios:', err);
-    res.status(500).json({ error: 'Erro ao atualizar usuário.' });
-  }
-});
-
-app.delete('/usuarios/:id', authMiddleware, async (req, res) => {
-  try {
-    const id = req.params.id;
-
-    await db.query(`DELETE FROM usuarios WHERE id = $1`, [id]);
-
-    res.status(204).send();
-  } catch (err) {
-    console.error('Erro em DELETE /usuarios:', err);
-    res.status(500).json({ error: 'Erro ao excluir usuário.' });
   }
 });
 
@@ -540,11 +467,10 @@ app.delete('/status/:id', authMiddleware, async (req, res) => {
 
     res.status(204).send();
   } catch (err) {
-    console.error('Erro DELETE /status:', err);
+    console.error('Erro DELETE /status/:id:', err);
     res.status(500).json({ error: 'Erro ao excluir status.' });
   }
 });
-
 
 // --------- Healthcheck ----------
 app.get('/', (req, res) => {
