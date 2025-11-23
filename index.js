@@ -175,14 +175,14 @@ app.post('/auth/alterar-senha', authMiddleware, async (req, res) => {
 // Lista todos os usuários para a tela de Configurações
 app.get('/usuarios', authMiddleware, async (req, res) => {
   try {
-    const result = await db.query(
+        const result = await db.query(
       `SELECT
          id,
          nome,
          email,
          tipo,
          ativo,
-         cpfCnpj,
+         cpfCnpj AS "cpfCnpj",
          telefone
        FROM usuarios
        ORDER BY id ASC`
@@ -233,7 +233,7 @@ app.post('/usuarios', authMiddleware, async (req, res) => {
     const result = await db.query(
       `INSERT INTO usuarios (nome, email, senha_hash, tipo, ativo, cpfCnpj, telefone)
        VALUES ($1, $2, $3, $4, true, $5, $6)
-       RETURNING id, nome, email, tipo, ativo, cpfCnpj, telefone`,
+          RETURNING id, nome, email, tipo, ativo, cpfCnpj AS "cpfCnpj", telefone`,
       [nome, email, senhaHash, userTipo, doc, telefone || null]
     );
 
@@ -281,7 +281,7 @@ app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
          cpfCnpj   = $5,
          telefone  = $6
        WHERE id = $7
-       RETURNING id, nome, email, tipo, ativo, cpfCnpj, telefone`,
+          RETURNING id, nome, email, tipo, ativo, cpfCnpj AS "cpfCnpj", telefone`,
       [newNome, newEmail, newTipo, newAtivo, newDoc, newTelefone, id]
     );
 
