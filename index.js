@@ -64,16 +64,22 @@ app.post('/auth/register', async (req, res) => {
 });
 
 // Login
+// Login (aceita e-mail OU nome no campo "email" do body)
 app.post('/auth/login', async (req, res) => {
   try {
     const { email, senha } = req.body;
     if (!email || !senha) {
-      return res.status(400).json({ error: 'Email e senha são obrigatórios.' });
+      return res.status(400).json({ error: 'Email (ou nome) e senha são obrigatórios.' });
     }
 
+    const login = email.trim();
+
     const result = await db.query(
-      'SELECT id, nome, email, senha_hash, tipo, ativo FROM usuarios WHERE email = $1',
-      [email]
+      `SELECT id, nome, email, senha_hash, tipo, ativo, cpfCnpj, telefone
+       FROM usuarios
+       WHERE email = $1 OR nome = $1
+       LIMIT 1`,
+      [login]
     );
 
     if (result.rows.length === 0) {
@@ -91,34 +97,97 @@ app.post('/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
     }
 
+    // Detecta se ainda está usando senha padrão
+    const senhaPadrao = '12345';
+    const usandoSenhaPadrao = await bcrypt.compare(senhaPadrao, user.senha_hash);
+
     const payload = {
       id: user.id,
       nome: user.nome,
       email: user.email,
-      tipo: user.tipo
+      tipo: user.tipo,
+      cpfCnpj: user.cpfcnpj,
+      telefone: user.telefone
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });
 
-    return res.json({ token, user: payload });
+    return res.json({
+      token,
+      user: payload,
+      primeiroAcesso: usandoSenhaPadrao && senha === senhaPadrao
+    });
   } catch (err) {
     console.error('Erro em /auth/login:', err);
     return res.status(500).json({ error: 'Erro interno ao fazer login.' });
   }
 });
 
+// Troca de senha (inclui fluxo de primeiro acesso)
+// Espera: { id, senhaAtual, novaSenha }
+app.post('/auth/alterar-senha', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.user; // pega do token
+    const { senhaAtual, novaSenha } = req.body;
+
+    if (!senhaAtual || !novaSenha) {
+      return res.status(400).json({
+        error: 'Informe senha atual e nova senha.'
+      });
+    }
+
+    const result = await db.query(
+      `SELECT id, senha_hash FROM usuarios WHERE id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    const user = result.rows[0];
+
+    const senhaConfere = await bcrypt.compare(senhaAtual, user.senha_hash);
+    if (!senhaConfere) {
+      return res.status(401).json({ error: 'Senha atual incorreta.' });
+    }
+
+    const novaHash = await bcrypt.hash(novaSenha, 10);
+
+    await db.query(
+      `UPDATE usuarios
+       SET senha_hash = $1
+       WHERE id = $2`,
+      [novaHash, id]
+    );
+
+    return res.status(200).json({ message: 'Senha alterada com sucesso.' });
+  } catch (err) {
+    console.error('Erro em /auth/alterar-senha:', err);
+    return res.status(500).json({ error: 'Erro ao alterar senha.' });
+  }
+});
+
+
 // --------- Usuários (Configurações) ----------
 
+// Lista todos os usuários para a tela de Configurações
 // Lista todos os usuários para a tela de Configurações
 app.get('/usuarios', authMiddleware, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT id, nome, email, tipo, ativo
+      `SELECT
+         id,
+         nome,
+         email,
+         tipo,
+         ativo,
+         cpfCnpj,
+         telefone
        FROM usuarios
        ORDER BY id ASC`
     );
 
-    // Sempre devolve 200 com array (mesmo vazio)
     return res.json(result.rows);
   } catch (err) {
     console.error('Erro em GET /usuarios:', err);
@@ -126,10 +195,12 @@ app.get('/usuarios', authMiddleware, async (req, res) => {
   }
 });
 
+
+// Cria um novo usuário "solicitante" a partir da Configuração
 // Cria um novo usuário "solicitante" a partir da Configuração
 app.post('/usuarios', authMiddleware, async (req, res) => {
   try {
-    const { nome, email, tipo } = req.body;
+    const { nome, email, tipo, cpf, cpfCnpj, telefone } = req.body;
 
     if (!nome || !email) {
       return res
@@ -146,20 +217,24 @@ app.post('/usuarios', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'E-mail já cadastrado.' });
     }
 
-    // Define um tipo padrão e uma senha padrão (ex.: 123456)
+    // Define tipo padrão
     const userTipo =
-      tipo && ['admin', 'user'].includes(tipo.toLowerCase())
-        ? tipo.toLowerCase()
+      tipo && ['admin', 'user'].includes(String(tipo).toLowerCase())
+        ? String(tipo).toLowerCase()
         : 'user';
 
-    const senhaPadrao = '123456'; // se quiser, troca depois
+    // Documento: tenta cpfCnpj, depois cpf
+    const doc = (cpfCnpj || cpf || '').trim() || null;
+
+    // Senha padrão que você quer usar
+    const senhaPadrao = '12345';
     const senhaHash = await bcrypt.hash(senhaPadrao, 10);
 
     const result = await db.query(
-      `INSERT INTO usuarios (nome, email, senha_hash, tipo, ativo)
-       VALUES ($1, $2, $3, $4, true)
-       RETURNING id, nome, email, tipo, ativo`,
-      [nome, email, senhaHash, userTipo]
+      `INSERT INTO usuarios (nome, email, senha_hash, tipo, ativo, cpfCnpj, telefone)
+       VALUES ($1, $2, $3, $4, true, $5, $6)
+       RETURNING id, nome, email, tipo, ativo, cpfCnpj, telefone`,
+      [nome, email, senhaHash, userTipo, doc, telefone || null]
     );
 
     return res.status(201).json(result.rows[0]);
@@ -169,27 +244,46 @@ app.post('/usuarios', authMiddleware, async (req, res) => {
   }
 });
 
+
 // Atualiza um usuário existente (nome, e-mail, tipo, ativo)
+// Atualiza um usuário existente (nome, e-mail, tipo, ativo, cpfCnpj, telefone)
 app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nome, email, tipo, ativo } = req.body;
+    const { nome, email, tipo, ativo, cpf, cpfCnpj, telefone } = req.body;
+
+    // Busca atual
+    const current = await db.query(
+      'SELECT * FROM usuarios WHERE id = $1',
+      [id]
+    );
+
+    if (current.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    const u = current.rows[0];
+
+    const newNome = nome ?? u.nome;
+    const newEmail = email ?? u.email;
+    const newTipo = tipo ?? u.tipo;
+    const newAtivo = typeof ativo === 'boolean' ? ativo : u.ativo;
+    const newDoc = (cpfCnpj || cpf || u.cpfcnpj || '').trim() || null;
+    const newTelefone = telefone ?? u.telefone;
 
     const result = await db.query(
       `UPDATE usuarios
        SET
-         nome  = COALESCE($1, nome),
-         email = COALESCE($2, email),
-         tipo  = COALESCE($3, tipo),
-         ativo = COALESCE($4, ativo)
-       WHERE id = $5
-       RETURNING id, nome, email, tipo, ativo`,
-      [nome || null, email || null, tipo || null, ativo, id]
+         nome      = $1,
+         email     = $2,
+         tipo      = $3,
+         ativo     = $4,
+         cpfCnpj   = $5,
+         telefone  = $6
+       WHERE id = $7
+       RETURNING id, nome, email, tipo, ativo, cpfCnpj, telefone`,
+      [newNome, newEmail, newTipo, newAtivo, newDoc, newTelefone, id]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Usuário não encontrado.' });
-    }
 
     return res.json(result.rows[0]);
   } catch (err) {
@@ -197,6 +291,7 @@ app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
     return res.status(500).json({ error: 'Erro ao atualizar usuário.' });
   }
 });
+
 
 // Remove um usuário (se não estiver sendo referenciado por FK, etc.)
 app.delete('/usuarios/:id', authMiddleware, async (req, res) => {
