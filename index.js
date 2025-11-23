@@ -357,8 +357,27 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
       valor_nf,
       emitente_nome,
       emitente_doc,
-      status
+      status,
+
+      // 🔹 campos vindos do front para protocolo / data / valor
+      protocolo,
+      nr_protocolo,
+      numero_protocolo,
+      valor,
+      valor_solicitado,
+      data_solicitacao,
+      data
     } = req.body;
+
+    // decide protocolo e data a gravar
+    const protocoloFinal =
+      protocolo || nr_protocolo || numero_protocolo || null;
+
+    const dataSolicFinal = data_solicitacao || data || null;
+
+    // valor solicitado (se quiser, no futuro ter separado de valor_nf)
+    const valorSolicFinal =
+      valor_solicitado ?? valor ?? null;
 
     const result = await db.query(
       `INSERT INTO solicitacoes (
@@ -371,9 +390,12 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
         valor_nf,
         emitente_nome,
         emitente_doc,
-        status
+        status,
+        protocolo,
+        data_solicitacao,
+        valor
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       RETURNING *`,
       [
         usuarioId,
@@ -382,10 +404,13 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
         beneficiario_doc || null,
         numero_nf || null,
         data_nf || null,
-        valor_nf || null,
+        valor_nf || valorSolicFinal || null,
         emitente_nome || null,
         emitente_doc || null,
-        status || 'Em análise'
+        status || 'Em análise',
+        protocoloFinal,
+        dataSolicFinal,
+        valorSolicFinal
       ]
     );
 
@@ -396,12 +421,23 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
   }
 });
 
+
 // Atualizar status (e outros campos simples)
 app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
   try {
     const solId = parseInt(req.params.id, 10);
     const { id: usuarioId, tipo } = req.user;
-    const { status } = req.body;
+
+    const {
+      status,
+      protocolo,
+      nr_protocolo,
+      numero_protocolo,
+      data_solicitacao,
+      data,
+      valor,
+      valor_solicitado
+    } = req.body;
 
     // Garante que user comum só mexe nas suas
     let query = 'SELECT * FROM solicitacoes WHERE id = $1';
@@ -417,13 +453,32 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Solicitação não encontrada.' });
     }
 
+    const protocoloFinal =
+      protocolo || nr_protocolo || numero_protocolo || existing.rows[0].protocolo;
+
+    const dataSolicFinal =
+      data_solicitacao || data || existing.rows[0].data_solicitacao || existing.rows[0].data_nf || null;
+
+    const valorFinal =
+      valor_solicitado ?? valor ?? existing.rows[0].valor ?? existing.rows[0].valor_nf ?? null;
+
     const result = await db.query(
       `UPDATE solicitacoes
-       SET status = COALESCE($1, status),
-           data_ultima_mudanca = NOW()
-       WHERE id = $2
+       SET
+         status           = COALESCE($1, status),
+         protocolo        = COALESCE($2, protocolo),
+         data_solicitacao = COALESCE($3, data_solicitacao),
+         valor            = COALESCE($4, valor),
+         data_ultima_mudanca = NOW()
+       WHERE id = $5
        RETURNING *`,
-      [status || null, solId]
+      [
+        status || null,
+        protocoloFinal,
+        dataSolicFinal,
+        valorFinal,
+        solId
+      ]
     );
 
     return res.json(result.rows[0]);
@@ -432,6 +487,7 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
     return res.status(500).json({ error: 'Erro ao atualizar solicitação.' });
   }
 });
+
 
 // Excluir solicitação
 app.delete('/solicitacoes/:id', authMiddleware, async (req, res) => {
