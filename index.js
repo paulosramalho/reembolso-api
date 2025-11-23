@@ -433,6 +433,45 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Excluir solicitação
+app.delete('/solicitacoes/:id', authMiddleware, async (req, res) => {
+  try {
+    const solId = parseInt(req.params.id, 10);
+
+    if (Number.isNaN(solId)) {
+      return res.status(400).json({ error: 'ID inválido.' });
+    }
+
+    const { id: usuarioId, tipo } = req.user;
+
+    let result;
+    if (tipo === 'admin') {
+      // admin pode excluir qualquer solicitação
+      result = await db.query(
+        'DELETE FROM solicitacoes WHERE id = $1 RETURNING id',
+        [solId]
+      );
+    } else {
+      // usuário comum só exclui o que é dele
+      result = await db.query(
+        'DELETE FROM solicitacoes WHERE id = $1 AND usuario_id = $2 RETURNING id',
+        [solId, usuarioId]
+      );
+    }
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Solicitação não encontrada.' });
+    }
+
+    return res.status(204).send();
+  } catch (err) {
+    console.error('Erro em DELETE /solicitacoes/:id:', err);
+    return res
+      .status(500)
+      .json({ error: 'Erro ao excluir solicitação.' });
+  }
+});
+
 // ===================== DESCRICOES ======================
 app.get('/descricoes', authMiddleware, async (req, res) => {
   try {
