@@ -403,7 +403,7 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
       valor_solicitado,
       data_solicitacao,
       data,
-      descricao
+      descricao,            // 🔹 AGORA LENDO A DESCRIÇÃO DO BODY
     } = req.body;
 
     const protocoloFinal =
@@ -429,9 +429,9 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
         protocolo,
         data_solicitacao,
         valor,
-        descricao
+        descricao          -- 🔹 NOVA COLUNA NO INSERT
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       RETURNING *`,
       [
         usuarioId,
@@ -447,7 +447,7 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
         protocoloFinal,
         dataSolicFinal,
         valorSolicFinal,
-        descricao || null
+        descricao || null   // 🔹 GRAVA A DESCRIÇÃO
       ]
     );
 
@@ -457,6 +457,7 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
     return res.status(500).json({ error: 'Erro ao criar solicitação.' });
   }
 });
+
 
 // --------- Upload de arquivos vinculados à solicitação ----------
 
@@ -525,11 +526,32 @@ app.post(
 app.use('/uploads', express.static(uploadDir));
 
 
-// Atualizar status (e outros campos simples)
+// Atualizar solicitação
 app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
   try {
     const solId = parseInt(req.params.id, 10);
+
+    if (Number.isNaN(solId)) {
+      return res.status(400).json({ error: 'ID inválido.' });
+    }
+
     const { id: usuarioId, tipo } = req.user;
+
+    // 1) Buscar a solicitação atual (respeitando admin / user)
+    let query = 'SELECT * FROM solicitacoes WHERE id = $1';
+    const params = [solId];
+
+    if (tipo !== 'admin') {
+      query += ' AND usuario_id = $2';
+      params.push(usuarioId);
+    }
+
+    const existing = await db.query(query, params);
+    if (existing.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ error: 'Solicitação não encontrada para este usuário.' });
+    }
 
     const {
       status,
@@ -540,31 +562,28 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
       data,
       valor,
       valor_solicitado,
-      descricao
+      descricao, // 🔹 LENDO DESCRIÇÃO DO BODY TAMBÉM
     } = req.body;
 
-    // Garante que user comum só mexe nas suas
-    let query = 'SELECT * FROM solicitacoes WHERE id = $1';
-    let params = [solId];
-
-    if (tipo !== 'admin') {
-      query += ' AND usuario_id = $2';
-      params.push(usuarioId);
-    }
-
-    const existing = await db.query(query, params);
-    if (existing.rows.length === 0) {
-      return res.status(404).json({ error: 'Solicitação não encontrada.' });
-    }
-
     const protocoloFinal =
-      protocolo || nr_protocolo || numero_protocolo || existing.rows[0].protocolo;
+      protocolo || nr_protocolo || numero_protocolo || existing.rows[0].protocolo || null;
 
     const dataSolicFinal =
-      data_solicitacao || data || existing.rows[0].data_solicitacao || existing.rows[0].data_nf || null;
+      data_solicitacao ||
+      data ||
+      existing.rows[0].data_solicitacao ||
+      existing.rows[0].data_nf ||
+      null;
 
     const valorFinal =
-      valor_solicitado ?? valor ?? existing.rows[0].valor ?? existing.rows[0].valor_nf ?? null;
+      valor_solicitado ??
+      valor ??
+      existing.rows[0].valor ??
+      existing.rows[0].valor_nf ??
+      null;
+
+    const descricaoFinal =
+      descricao ?? existing.rows[0].descricao ?? null; // 🔹 SE NÃO VIER NADA, MANTÉM A ATUAL
 
     const result = await db.query(
       `UPDATE solicitacoes
@@ -573,17 +592,17 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
          protocolo        = COALESCE($2, protocolo),
          data_solicitacao = COALESCE($3, data_solicitacao),
          valor            = COALESCE($4, valor),
-         descricao        = COALESCE($5, descricao),
+         descricao        = COALESCE($5, descricao),  -- 🔹 ATUALIZA A DESCRIÇÃO
          data_ultima_mudanca = NOW()
-       WHERE id = $5
+       WHERE id = $6
        RETURNING *`,
       [
         status || null,
         protocoloFinal,
         dataSolicFinal,
         valorFinal,
-        descricao || null,
-        solId
+        descricaoFinal,
+        solId,
       ]
     );
 
@@ -593,6 +612,7 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
     return res.status(500).json({ error: 'Erro ao atualizar solicitação.' });
   }
 });
+
 
 
 // Excluir solicitação + anexos vinculados
