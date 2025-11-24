@@ -334,9 +334,6 @@ app.get('/auth/me', authMiddleware, (req, res) => {
 // --------- Rotas de solicitações ----------
 
 // Listar solicitações
-// --------- Rotas de solicitações ----------
-
-// Listar solicitações
 app.get('/solicitacoes', authMiddleware, async (req, res) => {
   try {
     const { id, tipo } = req.user;
