@@ -4,6 +4,9 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('./db');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -11,6 +14,23 @@ const JWT_SECRET = process.env.JWT_SECRET || 'reembolso-super-secreto';
 
 app.use(cors());
 app.use(express.json());
+// --------- Upload de arquivos (NF / Comprovantes) ----------
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname || '');
+    cb(null, unique + ext);
+  },
+});
+
+const upload = multer({ storage });
+
 
 // --------- Middleware de autenticação ----------
 function authMiddleware(req, res, next) {
@@ -321,20 +341,39 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
     let result;
     if (tipo === 'admin') {
       result = await db.query(
-        `SELECT s.*, u.nome AS usuario_nome, u.email AS usuario_email
-         FROM solicitacoes s
-         JOIN usuarios u ON u.id = s.usuario_id
-         ORDER BY s.id DESC`
-      );
+        result = await db.query(
+  `SELECT
+     s.*,
+     u.nome AS usuario_nome,
+     u.email AS usuario_email,
+     (
+       SELECT COUNT(*)::int
+       FROM solicitacao_arquivos a
+       WHERE a.solicitacao_id = s.id
+     ) AS "docsExtrasCount"
+   FROM solicitacoes s
+   JOIN usuarios u ON u.id = s.usuario_id
+   WHERE s.usuario_id = $1
+   ORDER BY s.id DESC`,
+  [id]
+);
+
     } else {
       result = await db.query(
-        `SELECT s.*, u.nome AS usuario_nome, u.email AS usuario_email
-         FROM solicitacoes s
-         JOIN usuarios u ON u.id = s.usuario_id
-         WHERE s.usuario_id = $1
-         ORDER BY s.id DESC`,
-        [id]
-      );
+        result = await db.query(
+  `SELECT
+     s.*,
+     u.nome AS usuario_nome,
+     u.email AS usuario_email,
+     (
+       SELECT COUNT(*)::int
+       FROM solicitacao_arquivos a
+       WHERE a.solicitacao_id = s.id
+     ) AS "docsExtrasCount"
+   FROM solicitacoes s
+   JOIN usuarios u ON u.id = s.usuario_id
+   ORDER BY s.id DESC`
+);
     }
 
     return res.json(result.rows);
@@ -421,6 +460,64 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
   }
 });
 
+// Upload de arquivos vinculados à solicitação (NF / COMPROVANTE)
+app.post(
+  '/solicitacoes/:id/arquivos',
+  authMiddleware,
+  upload.single('file'),
+  async (req, res) => {
+    try {
+      const solicitacaoId = parseInt(req.params.id, 10);
+      const { id: usuarioId, tipo } = req.user;
+      const { tipo: tipoArquivo } = req.body;
+
+      if (!Number.isFinite(solicitacaoId)) {
+        return res.status(400).json({ error: 'Solicitação inválida.' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'Arquivo é obrigatório.' });
+      }
+
+      // garante que a solicitação existe e pertence ao usuário (se não for admin)
+      let query = 'SELECT * FROM solicitacoes WHERE id = $1';
+      const params = [solicitacaoId];
+
+      if (tipo !== 'admin') {
+        query += ' AND usuario_id = $2';
+        params.push(usuarioId);
+      }
+
+      const existing = await db.query(query, params);
+      if (existing.rows.length === 0) {
+        return res
+          .status(404)
+          .json({ error: 'Solicitação não encontrada para este usuário.' });
+      }
+
+      const insert = await db.query(
+        `INSERT INTO solicitacao_arquivos
+           (solicitacao_id, tipo, original_name, mime_type, path)
+         VALUES ($1,$2,$3,$4,$5)
+         RETURNING id, solicitacao_id, tipo, original_name, mime_type, path, created_at`,
+        [
+          solicitacaoId,
+          tipoArquivo || 'OUTRO',
+          req.file.originalname,
+          req.file.mimetype,
+          req.file.filename,
+        ]
+      );
+
+      return res.status(201).json(insert.rows[0]);
+    } catch (err) {
+      console.error('Erro em POST /solicitacoes/:id/arquivos:', err);
+      return res
+        .status(500)
+        .json({ error: 'Erro ao anexar arquivo à solicitação.' });
+    }
+  }
+);
 
 // Atualizar status (e outros campos simples)
 app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
