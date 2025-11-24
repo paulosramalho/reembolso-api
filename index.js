@@ -455,7 +455,6 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
   }
 });
 
-
 // --------- Upload de arquivos vinculados à solicitação ----------
 
 // rota de upload
@@ -590,7 +589,7 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
 });
 
 
-// Excluir solicitação
+// Excluir solicitação + anexos vinculados
 app.delete('/solicitacoes/:id', authMiddleware, async (req, res) => {
   try {
     const solId = parseInt(req.params.id, 10);
@@ -601,6 +600,16 @@ app.delete('/solicitacoes/:id', authMiddleware, async (req, res) => {
 
     const { id: usuarioId, tipo } = req.user;
 
+    // 1) Buscar anexos antes de excluir a solicitação
+    const anexosResult = await db.query(
+      'SELECT path FROM solicitacao_arquivos WHERE solicitacao_id = $1',
+      [solId]
+    );
+    const filePaths = anexosResult.rows
+      .map((r) => r.path)
+      .filter((p) => !!p);
+
+    // 2) Excluir a solicitação (respeitando admin / user)
     let result;
     if (tipo === 'admin') {
       // admin pode excluir qualquer solicitação
@@ -620,12 +629,80 @@ app.delete('/solicitacoes/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Solicitação não encontrada.' });
     }
 
+    // 3) Apagar arquivos físicos vinculados
+    // (as linhas em solicitacao_arquivos podem estar com ON DELETE CASCADE)
+    for (const relPath of filePaths) {
+      try {
+        const fullPath = path.join(uploadDir, relPath);
+        fs.unlink(fullPath, (err) => {
+          if (err && err.code !== 'ENOENT') {
+            console.error(
+              'Erro ao remover arquivo de anexo:',
+              fullPath,
+              err
+            );
+          }
+        });
+      } catch (e) {
+        console.error('Erro ao montar/remover caminho de anexo:', e);
+      }
+    }
+
     return res.status(204).send();
   } catch (err) {
     console.error('Erro em DELETE /solicitacoes/:id:', err);
     return res
       .status(500)
       .json({ error: 'Erro ao excluir solicitação.' });
+  }
+});
+
+// Listar anexos (NF, comprovantes, extras) de uma solicitação
+app.get('/solicitacoes/:id/arquivos', authMiddleware, async (req, res) => {
+  try {
+    const solId = parseInt(req.params.id, 10);
+    if (Number.isNaN(solId)) {
+      return res.status(400).json({ error: 'ID inválido.' });
+    }
+
+    const { id: usuarioId, tipo } = req.user;
+
+    let query = `
+      SELECT
+        a.id,
+        a.tipo,
+        a.original_name,
+        a.mime_type,
+        a.path,
+        a.created_at
+      FROM solicitacao_arquivos a
+      JOIN solicitacoes s ON s.id = a.solicitacao_id
+      WHERE a.solicitacao_id = $1
+    `;
+    const params = [solId];
+
+    if (tipo !== 'admin') {
+      query += ' AND s.usuario_id = $2';
+      params.push(usuarioId);
+    }
+
+    const result = await db.query(query, params);
+
+    // devolve também a URL pra download
+    const base =
+      process.env.PUBLIC_API_BASE ||
+      ''; // opcional, se quiser; se não, usamos relativo
+    const rows = result.rows.map((r) => ({
+      ...r,
+      url: `${base}/uploads/${r.path}`,
+    }));
+
+    return res.json(rows);
+  } catch (err) {
+    console.error('Erro em GET /solicitacoes/:id/arquivos:', err);
+    return res
+      .status(500)
+      .json({ error: 'Erro ao listar anexos da solicitação.' });
   }
 });
 
@@ -762,6 +839,56 @@ app.delete('/status/:id', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Erro ao excluir status.' });
   }
 });
+
+// Limpar TODOS os anexos da nuvem (admin only)
+// Use APENAS na virada para produção
+app.delete('/anexos', authMiddleware, async (req, res) => {
+  try {
+    const { tipo } = req.user;
+    if (tipo !== 'admin') {
+      return res
+        .status(403)
+        .json({ error: 'Apenas administradores podem limpar anexos.' });
+    }
+
+    const result = await db.query(
+      'SELECT path FROM solicitacao_arquivos'
+    );
+    const files = result.rows.map((r) => r.path).filter(Boolean);
+
+    // apaga registros
+    await db.query('DELETE FROM solicitacao_arquivos');
+
+    // tenta apagar arquivos físicos
+    for (const relPath of files) {
+      try {
+        const fullPath = path.join(uploadDir, relPath);
+        fs.unlink(fullPath, (err) => {
+          if (err && err.code !== 'ENOENT') {
+            console.error(
+              'Erro ao remover arquivo em limpeza geral:',
+              fullPath,
+              err
+            );
+          }
+        });
+      } catch (e) {
+        console.error(
+          'Erro ao montar/remover caminho em limpeza geral:',
+          e
+        );
+      }
+    }
+
+    return res.status(204).send();
+  } catch (err) {
+    console.error('Erro em DELETE /anexos:', err);
+    return res
+      .status(500)
+      .json({ error: 'Erro ao limpar anexos da nuvem.' });
+  }
+});
+
 
 // --------- Healthcheck ----------
 app.get('/', (req, res) => {
