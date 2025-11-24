@@ -384,10 +384,6 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
 
 // Criar nova solicitação
 app.post('/solicitacoes', authMiddleware, async (req, res) => {
-  // ... (deixa exatamente como já está aí embaixo)
-
-// Criar nova solicitação
-app.post('/solicitacoes', authMiddleware, async (req, res) => {
   try {
     const { id: usuarioId } = req.user;
     const {
@@ -400,8 +396,6 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
       emitente_nome,
       emitente_doc,
       status,
-
-      // 🔹 campos vindos do front para protocolo / data / valor
       protocolo,
       nr_protocolo,
       numero_protocolo,
@@ -411,13 +405,11 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
       data
     } = req.body;
 
-    // decide protocolo e data a gravar
     const protocoloFinal =
       protocolo || nr_protocolo || numero_protocolo || null;
 
     const dataSolicFinal = data_solicitacao || data || null;
 
-    // valor solicitado (se quiser, no futuro ter separado de valor_nf)
     const valorSolicFinal =
       valor_solicitado ?? valor ?? null;
 
@@ -462,6 +454,7 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
     return res.status(500).json({ error: 'Erro ao criar solicitação.' });
   }
 });
+
 
 // --------- Upload de arquivos vinculados à solicitação ----------
 
