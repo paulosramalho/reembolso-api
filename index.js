@@ -334,45 +334,48 @@ app.get('/auth/me', authMiddleware, (req, res) => {
 // --------- Rotas de solicitações ----------
 
 // Listar solicitações
+// --------- Rotas de solicitações ----------
+
+// Listar solicitações
 app.get('/solicitacoes', authMiddleware, async (req, res) => {
   try {
     const { id, tipo } = req.user;
 
     let result;
     if (tipo === 'admin') {
+      // Admin enxerga todas
       result = await db.query(
-        result = await db.query(
-  `SELECT
-     s.*,
-     u.nome AS usuario_nome,
-     u.email AS usuario_email,
-     (
-       SELECT COUNT(*)::int
-       FROM solicitacao_arquivos a
-       WHERE a.solicitacao_id = s.id
-     ) AS "docsExtrasCount"
-   FROM solicitacoes s
-   JOIN usuarios u ON u.id = s.usuario_id
-   WHERE s.usuario_id = $1
-   ORDER BY s.id DESC`,
-  [id]
-
+        `SELECT
+           s.*,
+           u.nome AS usuario_nome,
+           u.email AS usuario_email,
+           (
+             SELECT COUNT(*)::int
+             FROM solicitacao_arquivos a
+             WHERE a.solicitacao_id = s.id
+           ) AS "docsExtrasCount"
+         FROM solicitacoes s
+         JOIN usuarios u ON u.id = s.usuario_id
+         ORDER BY s.id DESC`
+      );
     } else {
+      // Usuário comum enxerga só as dele
       result = await db.query(
-        result = await db.query(
-  `SELECT
-     s.*,
-     u.nome AS usuario_nome,
-     u.email AS usuario_email,
-     (
-       SELECT COUNT(*)::int
-       FROM solicitacao_arquivos a
-       WHERE a.solicitacao_id = s.id
-     ) AS "docsExtrasCount"
-   FROM solicitacoes s
-   JOIN usuarios u ON u.id = s.usuario_id
-   ORDER BY s.id DESC`
-);
+        `SELECT
+           s.*,
+           u.nome AS usuario_nome,
+           u.email AS usuario_email,
+           (
+             SELECT COUNT(*)::int
+             FROM solicitacao_arquivos a
+             WHERE a.solicitacao_id = s.id
+           ) AS "docsExtrasCount"
+         FROM solicitacoes s
+         JOIN usuarios u ON u.id = s.usuario_id
+         WHERE s.usuario_id = $1
+         ORDER BY s.id DESC`,
+        [id]
+      );
     }
 
     return res.json(result.rows);
@@ -381,6 +384,10 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
     return res.status(500).json({ error: 'Erro ao listar solicitações.' });
   }
 });
+
+// Criar nova solicitação
+app.post('/solicitacoes', authMiddleware, async (req, res) => {
+  // ... (deixa exatamente como já está aí embaixo)
 
 // Criar nova solicitação
 app.post('/solicitacoes', authMiddleware, async (req, res) => {
@@ -460,26 +467,6 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
 });
 
 // --------- Upload de arquivos vinculados à solicitação ----------
-const path = require('path');
-const fs = require('fs');
-const multer = require('multer');
-
-// pasta uploads (cria se não existir)
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname || '');
-    cb(null, unique + ext);
-  },
-});
-
-const upload = multer({ storage });
 
 // rota de upload
 app.post(
@@ -545,10 +532,6 @@ app.post(
 // rota serve arquivos estáticos
 app.use('/uploads', express.static(uploadDir));
 
-// ---------------------------------------------------------------
-app.listen(PORT, () => {
-  console.log(`API rodando na porta ${PORT}`);
-});
 
 // Atualizar status (e outros campos simples)
 app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
