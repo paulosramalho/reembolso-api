@@ -460,7 +460,29 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
   }
 });
 
-// Upload de arquivos vinculados à solicitação (NF / COMPROVANTE)
+// --------- Upload de arquivos vinculados à solicitação ----------
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+
+// pasta uploads (cria se não existir)
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname || '');
+    cb(null, unique + ext);
+  },
+});
+
+const upload = multer({ storage });
+
+// rota de upload
 app.post(
   '/solicitacoes/:id/arquivos',
   authMiddleware,
@@ -468,7 +490,7 @@ app.post(
   async (req, res) => {
     try {
       const solicitacaoId = parseInt(req.params.id, 10);
-      const { id: usuarioId, tipo } = req.user;
+      const { tipo: tipoUsuario, id: usuarioId } = req.user;
       const { tipo: tipoArquivo } = req.body;
 
       if (!Number.isFinite(solicitacaoId)) {
@@ -479,27 +501,29 @@ app.post(
         return res.status(400).json({ error: 'Arquivo é obrigatório.' });
       }
 
-      // garante que a solicitação existe e pertence ao usuário (se não for admin)
+      // valida solicitação
       let query = 'SELECT * FROM solicitacoes WHERE id = $1';
       const params = [solicitacaoId];
 
-      if (tipo !== 'admin') {
+      if (tipoUsuario !== 'admin') {
         query += ' AND usuario_id = $2';
         params.push(usuarioId);
       }
 
       const existing = await db.query(query, params);
       if (existing.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ error: 'Solicitação não encontrada para este usuário.' });
+        return res.status(404).json({
+          error: 'Solicitação não encontrada para este usuário.',
+        });
       }
 
+      // salva no banco
       const insert = await db.query(
         `INSERT INTO solicitacao_arquivos
            (solicitacao_id, tipo, original_name, mime_type, path)
          VALUES ($1,$2,$3,$4,$5)
-         RETURNING id, solicitacao_id, tipo, original_name, mime_type, path, created_at`,
+         RETURNING
+           id, solicitacao_id, tipo, original_name, mime_type, path, created_at`,
         [
           solicitacaoId,
           tipoArquivo || 'OUTRO',
@@ -518,6 +542,14 @@ app.post(
     }
   }
 );
+
+// rota serve arquivos estáticos
+app.use('/uploads', express.static(uploadDir));
+
+// ---------------------------------------------------------------
+app.listen(PORT, () => {
+  console.log(`API rodando na porta ${PORT}`);
+});
 
 // Atualizar status (e outros campos simples)
 app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
