@@ -356,7 +356,6 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
    WHERE s.usuario_id = $1
    ORDER BY s.id DESC`,
   [id]
-);
 
     } else {
       result = await db.query(
