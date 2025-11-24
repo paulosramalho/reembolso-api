@@ -402,7 +402,8 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
       valor,
       valor_solicitado,
       data_solicitacao,
-      data
+      data,
+      descricao
     } = req.body;
 
     const protocoloFinal =
@@ -427,7 +428,8 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
         status,
         protocolo,
         data_solicitacao,
-        valor
+        valor,
+        descricao
       )
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       RETURNING *`,
@@ -444,7 +446,8 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
         status || 'Em análise',
         protocoloFinal,
         dataSolicFinal,
-        valorSolicFinal
+        valorSolicFinal,
+        descricao || null
       ]
     );
 
@@ -536,7 +539,8 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
       data_solicitacao,
       data,
       valor,
-      valor_solicitado
+      valor_solicitado,
+      descricao
     } = req.body;
 
     // Garante que user comum só mexe nas suas
@@ -569,6 +573,7 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
          protocolo        = COALESCE($2, protocolo),
          data_solicitacao = COALESCE($3, data_solicitacao),
          valor            = COALESCE($4, valor),
+         descricao        = COALESCE($5, descricao),
          data_ultima_mudanca = NOW()
        WHERE id = $5
        RETURNING *`,
@@ -577,6 +582,7 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
         protocoloFinal,
         dataSolicFinal,
         valorFinal,
+        descricao || null,
         solId
       ]
     );
