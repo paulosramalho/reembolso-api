@@ -581,7 +581,7 @@ app.put('/solicitacoes/:id', async (req, res) => {
   }
 
   try {
-    // 1) Busca registro atual
+    // 1) Buscar registro atual
     const existingResult = await db.query(
       'SELECT * FROM solicitacoes WHERE id = $1',
       [solId]
@@ -593,7 +593,7 @@ app.put('/solicitacoes/:id', async (req, res) => {
 
     const existing = existingResult.rows[0];
 
-    // 2) Campos que podem vir do front
+    // 2) Campos vindos do front
     const {
       status,
       protocolo,
@@ -607,37 +607,28 @@ app.put('/solicitacoes/:id', async (req, res) => {
       valorReembolso,
       dataPagamento,
       descricao,
-      obs, // para histórico, se vier
+      obs
     } = req.body;
 
-    // helper para número
+    // conversor seguro de valores
     const toNum = (x) => {
-      if (typeof x === 'number') {
-        return Number.isFinite(x) ? x : null;
-      }
+      if (typeof x === 'number') return Number.isFinite(x) ? x : null;
       if (typeof x === 'string' && x.trim()) {
-        const cleaned = x.replace(/\./g, '').replace(',', '.');
-        const n = Number(cleaned);
+        const n = Number(x.replace(/\./g, '').replace(',', '.'));
         return Number.isFinite(n) ? n : null;
       }
       return null;
     };
 
-    // 3) Calcula valores finais (usando o que veio OU o que já existe)
+    // 3) Composições finais
     const prevStatus = existing.status;
     const statusFinal = status ?? prevStatus;
 
     const protocoloFinal =
-      (protocolo || nr_protocolo || numero_protocolo) ??
-      existing.protocolo ??
-      null;
+      protocolo || nr_protocolo || numero_protocolo || existing.protocolo || null;
 
     const dataSolicFinal =
-      data_solicitacao ||
-      data ||
-      existing.data_solicitacao ||
-      existing.data ||
-      null;
+      data_solicitacao || data || existing.data_solicitacao || null;
 
     let valorFinal = toNum(valor);
     if (valorFinal == null) valorFinal = toNum(valor_solicitado);
@@ -645,13 +636,11 @@ app.put('/solicitacoes/:id', async (req, res) => {
 
     const descricaoFinal = descricao ?? existing.descricao ?? null;
 
-    const dataPagamentoFinal =
-      dataPagamento || existing.data_pagamento || null;
-
+    const dataPagamentoFinal = dataPagamento || existing.data_pagamento || null;
     const valorReembolsoFinal =
       toNum(valorReembolso) ?? existing.valor_reembolso ?? null;
 
-    // 4) Atualiza a tabela principal
+    // 4) Update principal
     const updateResult = await db.query(
       `
       UPDATE solicitacoes
@@ -679,15 +668,15 @@ app.put('/solicitacoes/:id', async (req, res) => {
 
     const updated = updateResult.rows[0];
 
-    // 5) Histórico de status
-    const mudouStatus = statusFinal && statusFinal !== prevStatus;
+    // ===== HISTÓRICO =====
 
-    // data da movimentação (pra history)
-    let movDate = statusDate || dataPagamento || data_solicitacao;
-    if (!movDate) {
-      // se nada veio, usa hoje
-      movDate = new Date().toISOString().slice(0, 10);
-    }
+    const mudouStatus = statusFinal !== prevStatus;
+
+    let movDate =
+      statusDate ||
+      dataPagamento ||
+      data_solicitacao ||
+      new Date().toISOString().slice(0, 10);
 
     if (mudouStatus || statusDate) {
       await db.query(
@@ -699,9 +688,9 @@ app.put('/solicitacoes/:id', async (req, res) => {
         [
           solId,
           statusFinal,
-          movDate,       // timestamp/date
-          'API',         // origem
-          obs || null,   // observação opcional
+          movDate,
+          'API',
+          obs || null
         ]
       );
     }
@@ -712,6 +701,7 @@ app.put('/solicitacoes/:id', async (req, res) => {
     return res.status(500).json({ error: 'Erro ao atualizar solicitação.' });
   }
 });
+
 
     const updated = updateResult.rows[0];
 
