@@ -350,19 +350,19 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
           WHERE a.solicitacao_id = s.id
         ) AS "docsExtrasCount",
         (
-  SELECT COALESCE(
-    json_agg(h),
-    '[]'::json
-  )
-  FROM (
-    SELECT
-      h.status,
-      h.data_movimentacao AS date
-    FROM solicitacao_status_history h
-    WHERE h.solicitacao_id = s.id
-    ORDER BY h.data_movimentacao
-  ) h
-) AS status_history
+          SELECT COALESCE(
+            json_agg(h),
+            '[]'::json
+          )
+          FROM (
+            SELECT
+              h.status,
+              h.data_movimentacao AS date
+            FROM solicitacao_status_history h
+            WHERE h.solicitacao_id = s.id
+            ORDER BY h.data_movimentacao
+          ) h
+        ) AS status_history
       FROM solicitacoes s
       JOIN usuarios u ON u.id = s.usuario_id
     `;
@@ -591,7 +591,7 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
       data,
       valor,
       valor_solicitado,
-      statusDate // data da movimentação (digitada na tela)
+      statusDate // data da movimentação (digitada na tela, usada em lote)
     } = req.body;
 
     const protocoloFinal =
@@ -630,7 +630,7 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
 
     const updated = updateResult.rows[0];
 
-    // 2) Registrar histórico de status, se houve troca
+    // 2) Registrar histórico de status, se houve troca (usado principalmente nas ações em lote)
     if (status && statusDate) {
       try {
         await db.query(
@@ -653,8 +653,6 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
     return res.status(500).json({ error: 'Erro ao atualizar solicitação.' });
   }
 });
-
-
 
 
 // Excluir solicitação + anexos vinculados
