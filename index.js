@@ -636,16 +636,20 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
 
     const updated = updateResult.rows[0];
 
-    // 2) Registrar histórico de status, se houve troca (usado principalmente nas ações em lote)
-    if (status && statusDate) {
+        // 2) Registrar histórico de status em toda troca
+    if (status) {
       try {
+        const dataMov =
+          statusDate ||        // se a tela mandou uma data de movimentação, usa ela
+          new Date();          // senão, registra a data/hora exata da troca
+
         await db.query(
           `INSERT INTO solicitacao_status_history (
             solicitacao_id,
             status,
             data_movimentacao
           ) VALUES ($1,$2,$3)`,
-          [solId, status, statusDate]
+          [solId, status, dataMov]
         );
       } catch (errHist) {
         console.error('Erro ao gravar histórico de status:', errHist);
