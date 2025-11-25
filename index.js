@@ -420,7 +420,7 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
       protocolo || nr_protocolo || numero_protocolo || null;
 
     // 🔹 Data da solicitação vinda do front
-    const dataSolicFinal = data_solicitacao || data || null;
+    const dataSolicFinal = data_solicitacao || data || new Date();
 
     const valorFinal =
       (valor_solicitado ?? valor ?? valor_nf) ?? null;
@@ -467,10 +467,10 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
     // 🔹 Histórico inicial de status usando a MESMA data da solicitação
     try {
       const dataHist =
-        dataSolicFinal ||           // prioriza a data que veio do front
-        created.data_solicitacao || // fallback: o que ficou no banco
-        created.data_nf ||
-        new Date();
+  dataSolicFinal ||
+  created.data_solicitacao ||
+  new Date();  // ❌ created.data_nf não é data de status
+
 
       await db.query(
         `INSERT INTO solicitacao_status_history (
@@ -481,9 +481,9 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
         [created.id, statusInicial, dataHist]
       );
     } catch (errHist) {
-      console.error('Erro ao gravar histórico inicial de status:', errHist);
-      // não quebra o fluxo pra não derrubar o cadastro
-    }
+  console.error('🔥 ERRO AO INSERIR HISTÓRICO:', errHist.message);
+  console.error('SQL ERROR DETAIL:', errHist);
+}
 
     return res.status(201).json(created);
   } catch (err) {
