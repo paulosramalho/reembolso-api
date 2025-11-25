@@ -84,7 +84,6 @@ app.post('/auth/register', async (req, res) => {
   }
 });
 
-// Login
 // Login (aceita e-mail OU nome no campo "email" do body)
 app.post('/auth/login', async (req, res) => {
   try {
@@ -193,10 +192,9 @@ app.post('/auth/alterar-senha', authMiddleware, async (req, res) => {
 // --------- Usuários (Configurações) ----------
 
 // Lista todos os usuários para a tela de Configurações
-// Lista todos os usuários para a tela de Configurações
 app.get('/usuarios', authMiddleware, async (req, res) => {
   try {
-        const result = await db.query(
+    const result = await db.query(
       `SELECT
          id,
          nome,
@@ -216,8 +214,6 @@ app.get('/usuarios', authMiddleware, async (req, res) => {
   }
 });
 
-
-// Cria um novo usuário "solicitante" a partir da Configuração
 // Cria um novo usuário "solicitante" a partir da Configuração
 app.post('/usuarios', authMiddleware, async (req, res) => {
   try {
@@ -247,14 +243,14 @@ app.post('/usuarios', authMiddleware, async (req, res) => {
     // Documento: tenta cpfCnpj, depois cpf
     const doc = (cpfCnpj || cpf || '').trim() || null;
 
-    // Senha padrão que você quer usar
+    // Senha padrão
     const senhaPadrao = '12345';
     const senhaHash = await bcrypt.hash(senhaPadrao, 10);
 
     const result = await db.query(
       `INSERT INTO usuarios (nome, email, senha_hash, tipo, ativo, cpfCnpj, telefone)
        VALUES ($1, $2, $3, $4, true, $5, $6)
-          RETURNING id, nome, email, tipo, ativo, cpfCnpj AS "cpfCnpj", telefone`,
+       RETURNING id, nome, email, tipo, ativo, cpfCnpj AS "cpfCnpj", telefone`,
       [nome, email, senhaHash, userTipo, doc, telefone || null]
     );
 
@@ -265,8 +261,6 @@ app.post('/usuarios', authMiddleware, async (req, res) => {
   }
 });
 
-
-// Atualiza um usuário existente (nome, e-mail, tipo, ativo)
 // Atualiza um usuário existente (nome, e-mail, tipo, ativo, cpfCnpj, telefone)
 app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
   try {
@@ -302,7 +296,7 @@ app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
          cpfCnpj   = $5,
          telefone  = $6
        WHERE id = $7
-          RETURNING id, nome, email, tipo, ativo, cpfCnpj AS "cpfCnpj", telefone`,
+       RETURNING id, nome, email, tipo, ativo, cpfCnpj AS "cpfCnpj", telefone`,
       [newNome, newEmail, newTipo, newAtivo, newDoc, newTelefone, id]
     );
 
@@ -312,7 +306,6 @@ app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
     return res.status(500).json({ error: 'Erro ao atualizar usuário.' });
   }
 });
-
 
 // Remove um usuário (se não estiver sendo referenciado por FK, etc.)
 app.delete('/usuarios/:id', authMiddleware, async (req, res) => {
@@ -331,6 +324,7 @@ app.delete('/usuarios/:id', authMiddleware, async (req, res) => {
 app.get('/auth/me', authMiddleware, (req, res) => {
   return res.json({ user: req.user });
 });
+
 
 // --------- Rotas de solicitações ----------
 
@@ -484,7 +478,6 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
   }
 });
 
-
 // --------- Upload de arquivos vinculados à solicitação ----------
 
 // rota de upload
@@ -550,7 +543,6 @@ app.post(
 
 // rota serve arquivos estáticos
 app.use('/uploads', express.static(uploadDir));
-
 
 // Atualizar solicitação (e registrar cada troca de status no histórico)
 app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
@@ -653,7 +645,6 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
     return res.status(500).json({ error: 'Erro ao atualizar solicitação.' });
   }
 });
-
 
 // Excluir solicitação + anexos vinculados
 app.delete('/solicitacoes/:id', authMiddleware, async (req, res) => {
@@ -772,6 +763,7 @@ app.get('/solicitacoes/:id/arquivos', authMiddleware, async (req, res) => {
   }
 });
 
+
 // ===================== DESCRICOES ======================
 app.get('/descricoes', authMiddleware, async (req, res) => {
   try {
@@ -821,7 +813,7 @@ app.patch('/descricoes/:id', authMiddleware, async (req, res) => {
 
     res.json(r.rows[0]);
   } catch (err) {
-    console.error('Erro PATCH /descricoes:', err);
+    console.error('Erro PATCH /descricoes/:id:', err);
     res.status(500).json({ error: 'Erro ao atualizar descrição.' });
   }
 });
@@ -834,7 +826,7 @@ app.delete('/descricoes/:id', authMiddleware, async (req, res) => {
 
     res.status(204).send();
   } catch (err) {
-    console.error('Erro DELETE /descricoes:', err);
+    console.error('Erro DELETE /descricoes/:id:', err);
     res.status(500).json({ error: 'Erro ao excluir descrição.' });
   }
 });
@@ -888,7 +880,7 @@ app.patch('/status/:id', authMiddleware, async (req, res) => {
 
     res.json(r.rows[0]);
   } catch (err) {
-    console.error('Erro PATCH /status:', err);
+    console.error('Erro PATCH /status/:id:', err);
     res.status(500).json({ error: 'Erro ao atualizar status.' });
   }
 });
