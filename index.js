@@ -677,8 +677,6 @@ app.put('/solicitacoes/:id', async (req, res) => {
       ]
     );
 
-    const descricaoFinal = descricao ?? existing.descricao ?? null;
-
     const updated = updateResult.rows[0];
 
     // 5) Histórico de status
