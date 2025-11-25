@@ -334,48 +334,52 @@ app.get('/auth/me', authMiddleware, (req, res) => {
 
 // --------- Rotas de solicitações ----------
 
-// Listar solicitações
+// Listar solicitações (já trazendo histórico de status)
 app.get('/solicitacoes', authMiddleware, async (req, res) => {
   try {
     const { id, tipo } = req.user;
 
-    let result;
+    const baseSelect = `
+      SELECT
+        s.*,
+        u.nome  AS usuario_nome,
+        u.email AS usuario_email,
+        (
+          SELECT COUNT(*)::int
+          FROM solicitacao_arquivos a
+          WHERE a.solicitacao_id = s.id
+        ) AS "docsExtrasCount",
+        (
+          SELECT COALESCE(
+            json_agg(
+              json_build_object(
+                'status', h.status,
+                'date',   h.data_movimentacao
+              )
+              ORDER BY h.data_movimentacao
+            ),
+            '[]'::json
+          )
+          FROM solicitacao_status_history h
+          WHERE h.solicitacao_id = s.id
+        ) AS status_history
+      FROM solicitacoes s
+      JOIN usuarios u ON u.id = s.usuario_id
+    `;
+
+    let query;
+    let params = [];
+
     if (tipo === 'admin') {
-      // Admin enxerga todas
-      result = await db.query(
-        `SELECT
-           s.*,
-           u.nome AS usuario_nome,
-           u.email AS usuario_email,
-           (
-             SELECT COUNT(*)::int
-             FROM solicitacao_arquivos a
-             WHERE a.solicitacao_id = s.id
-           ) AS "docsExtrasCount"
-         FROM solicitacoes s
-         JOIN usuarios u ON u.id = s.usuario_id
-         ORDER BY s.id DESC`
-      );
+      // Admin vê todas
+      query = baseSelect + ' ORDER BY s.id DESC';
     } else {
-      // Usuário comum enxerga só as dele
-      result = await db.query(
-        `SELECT
-           s.*,
-           u.nome AS usuario_nome,
-           u.email AS usuario_email,
-           (
-             SELECT COUNT(*)::int
-             FROM solicitacao_arquivos a
-             WHERE a.solicitacao_id = s.id
-           ) AS "docsExtrasCount"
-         FROM solicitacoes s
-         JOIN usuarios u ON u.id = s.usuario_id
-         WHERE s.usuario_id = $1
-         ORDER BY s.id DESC`,
-        [id]
-      );
+      // Usuário comum vê só as dele
+      query = baseSelect + ' WHERE s.usuario_id = $1 ORDER BY s.id DESC';
+      params = [id];
     }
 
+    const result = await db.query(query, params);
     return res.json(result.rows);
   } catch (err) {
     console.error('Erro em GET /solicitacoes:', err);
@@ -383,7 +387,7 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
   }
 });
 
-// Criar nova solicitação
+// Criar nova solicitação (já grava o status inicial no histórico)
 app.post('/solicitacoes', authMiddleware, async (req, res) => {
   try {
     const { id: usuarioId } = req.user;
@@ -403,8 +407,7 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
       valor,
       valor_solicitado,
       data_solicitacao,
-      data,
-      descricao,            // 🔹 AGORA LENDO A DESCRIÇÃO DO BODY
+      data
     } = req.body;
 
     const protocoloFinal =
@@ -412,10 +415,12 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
 
     const dataSolicFinal = data_solicitacao || data || null;
 
-    const valorSolicFinal =
-      valor_solicitado ?? valor ?? null;
+    const valorFinal =
+      (valor_solicitado ?? valor ?? valor_nf) ?? null;
 
-    const result = await db.query(
+    const statusInicial = status || 'Em análise';
+
+    const insertResult = await db.query(
       `INSERT INTO solicitacoes (
         usuario_id,
         solicitante_nome,
@@ -429,10 +434,9 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
         status,
         protocolo,
         data_solicitacao,
-        valor,
-        descricao          -- 🔹 NOVA COLUNA NO INSERT
+        valor
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       RETURNING *`,
       [
         usuarioId,
@@ -441,18 +445,39 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
         beneficiario_doc || null,
         numero_nf || null,
         data_nf || null,
-        valor_nf || valorSolicFinal || null,
+        valor_nf || valorFinal || null,
         emitente_nome || null,
         emitente_doc || null,
-        status || 'Em análise',
+        statusInicial,
         protocoloFinal,
         dataSolicFinal,
-        valorSolicFinal,
-        descricao || null   // 🔹 GRAVA A DESCRIÇÃO
+        valorFinal
       ]
     );
 
-    return res.status(201).json(result.rows[0]);
+    const created = insertResult.rows[0];
+
+    // Histórico inicial de status
+    try {
+      const dataHist =
+        created.data_solicitacao ||
+        created.data_nf ||
+        new Date();
+
+      await db.query(
+        `INSERT INTO solicitacao_status_history (
+          solicitacao_id,
+          status,
+          data_movimentacao
+        ) VALUES ($1,$2,$3)`,
+        [created.id, statusInicial, dataHist]
+      );
+    } catch (errHist) {
+      console.error('Erro ao gravar histórico inicial de status:', errHist);
+      // não quebra o fluxo pra não derrubar o cadastro
+    }
+
+    return res.status(201).json(created);
   } catch (err) {
     console.error('Erro em POST /solicitacoes:', err);
     return res.status(500).json({ error: 'Erro ao criar solicitação.' });
@@ -527,7 +552,7 @@ app.post(
 app.use('/uploads', express.static(uploadDir));
 
 
-// Atualizar solicitação
+// Atualizar solicitação (e registrar cada troca de status no histórico)
 app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
   try {
     const solId = parseInt(req.params.id, 10);
@@ -547,12 +572,15 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
       params.push(usuarioId);
     }
 
-    const existing = await db.query(query, params);
-    if (existing.rows.length === 0) {
+    const existingResult = await db.query(query, params);
+
+    if (existingResult.rows.length === 0) {
       return res
         .status(404)
         .json({ error: 'Solicitação não encontrada para este usuário.' });
     }
+
+    const existing = existingResult.rows[0];
 
     const {
       status,
@@ -563,56 +591,69 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
       data,
       valor,
       valor_solicitado,
-      descricao, // 🔹 LENDO DESCRIÇÃO DO BODY TAMBÉM
+      statusDate // data da movimentação (digitada na tela)
     } = req.body;
 
     const protocoloFinal =
-      protocolo || nr_protocolo || numero_protocolo || existing.rows[0].protocolo || null;
+      protocolo ||
+      nr_protocolo ||
+      numero_protocolo ||
+      existing.protocolo ||
+      null;
 
     const dataSolicFinal =
       data_solicitacao ||
       data ||
-      existing.rows[0].data_solicitacao ||
-      existing.rows[0].data_nf ||
+      existing.data_solicitacao ||
+      existing.data_nf ||
       null;
 
     const valorFinal =
-      valor_solicitado ??
-      valor ??
-      existing.rows[0].valor ??
-      existing.rows[0].valor_nf ??
-      null;
+      (valor_solicitado ??
+        valor ??
+        existing.valor ??
+        existing.valor_nf) ?? null;
 
-    const descricaoFinal =
-      descricao ?? existing.rows[0].descricao ?? null; // 🔹 SE NÃO VIER NADA, MANTÉM A ATUAL
+    const statusFinal = status || existing.status;
 
-    const result = await db.query(
+    const updateResult = await db.query(
       `UPDATE solicitacoes
        SET
          status           = COALESCE($1, status),
          protocolo        = COALESCE($2, protocolo),
          data_solicitacao = COALESCE($3, data_solicitacao),
-         valor            = COALESCE($4, valor),
-         descricao        = COALESCE($5, descricao),  -- 🔹 ATUALIZA A DESCRIÇÃO
-         data_ultima_mudanca = NOW()
-       WHERE id = $6
+         valor            = COALESCE($4, valor)
+       WHERE id = $5
        RETURNING *`,
-      [
-        status || null,
-        protocoloFinal,
-        dataSolicFinal,
-        valorFinal,
-        descricaoFinal,
-        solId,
-      ]
+      [statusFinal, protocoloFinal, dataSolicFinal, valorFinal, solId]
     );
 
-    return res.json(result.rows[0]);
+    const updated = updateResult.rows[0];
+
+    // 2) Registrar histórico de status, se houve troca
+    if (status && statusDate) {
+      try {
+        await db.query(
+          `INSERT INTO solicitacao_status_history (
+            solicitacao_id,
+            status,
+            data_movimentacao
+          ) VALUES ($1,$2,$3)`,
+          [solId, status, statusDate]
+        );
+      } catch (errHist) {
+        console.error('Erro ao gravar histórico de status:', errHist);
+        // não derruba a atualização principal
+      }
+    }
+
+    return res.json(updated);
   } catch (err) {
     console.error('Erro em PUT /solicitacoes/:id:', err);
     return res.status(500).json({ error: 'Erro ao atualizar solicitação.' });
   }
 });
+
 
 
 
