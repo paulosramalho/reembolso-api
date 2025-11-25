@@ -350,7 +350,23 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
              SELECT COUNT(*)::int
              FROM solicitacao_arquivos a
              WHERE a.solicitacao_id = s.id
-           ) AS "docsExtrasCount"
+           ) AS "docsExtrasCount",
+           (
+             SELECT COALESCE(
+               json_agg(
+                 json_build_object(
+                   'status', h.status,
+                   'date', h.data_movimentacao,
+                   'origem', COALESCE(h.origem, 'API'),
+                   'obs', COALESCE(h.obs, '')
+                 )
+                 ORDER BY h.data_movimentacao
+               ),
+               '[]'::json
+             )
+             FROM solicitacao_status_history h
+             WHERE h.solicitacao_id = s.id
+           ) AS status_history
          FROM solicitacoes s
          JOIN usuarios u ON u.id = s.usuario_id
          ORDER BY s.id DESC`
@@ -366,7 +382,23 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
              SELECT COUNT(*)::int
              FROM solicitacao_arquivos a
              WHERE a.solicitacao_id = s.id
-           ) AS "docsExtrasCount"
+           ) AS "docsExtrasCount",
+           (
+             SELECT COALESCE(
+               json_agg(
+                 json_build_object(
+                   'status', h.status,
+                   'date', h.data_movimentacao,
+                   'origem', COALESCE(h.origem, 'API'),
+                   'obs', COALESCE(h.obs, '')
+                 )
+                 ORDER BY h.data_movimentacao
+               ),
+               '[]'::json
+             )
+             FROM solicitacao_status_history h
+             WHERE h.solicitacao_id = s.id
+           ) AS status_history
          FROM solicitacoes s
          JOIN usuarios u ON u.id = s.usuario_id
          WHERE s.usuario_id = $1
@@ -403,7 +435,7 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
       valor_solicitado,
       data_solicitacao,
       data,
-      descricao,            // 🔹 AGORA LENDO A DESCRIÇÃO DO BODY
+      descricao,            // 🔹 descrição no body
     } = req.body;
 
     const protocoloFinal =
@@ -414,7 +446,7 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
     const valorSolicFinal =
       valor_solicitado ?? valor ?? null;
 
-    const result = await db.query(
+    const insertResult = await db.query(
       `INSERT INTO solicitacoes (
         usuario_id,
         solicitante_nome,
@@ -429,7 +461,7 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
         protocolo,
         data_solicitacao,
         valor,
-        descricao          -- 🔹 NOVA COLUNA NO INSERT
+        descricao          -- 🔹 coluna nova
       )
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       RETURNING *`,
@@ -447,84 +479,40 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
         protocoloFinal,
         dataSolicFinal,
         valorSolicFinal,
-        descricao || null   // 🔹 GRAVA A DESCRIÇÃO
+        descricao || null
       ]
     );
 
-    return res.status(201).json(result.rows[0]);
+    const created = insertResult.rows[0];
+
+    // 🔹 Histórico inicial de status
+    try {
+      const statusInicial = created.status || 'Em análise';
+      const dataInicial =
+        created.data_solicitacao ||
+        created.data_nf ||
+        new Date();
+
+      await db.query(
+        `INSERT INTO solicitacao_status_history (
+          solicitacao_id,
+          status,
+          data_movimentacao,
+          origem,
+          obs
+        ) VALUES ($1,$2,$3,$4,$5)`,
+        [created.id, statusInicial, dataInicial, 'Criação', 'Status inicial']
+      );
+    } catch (errHist) {
+      console.error('Erro ao inserir histórico inicial de status:', errHist);
+    }
+
+    return res.status(201).json(created);
   } catch (err) {
     console.error('Erro em POST /solicitacoes:', err);
     return res.status(500).json({ error: 'Erro ao criar solicitação.' });
   }
 });
-
-
-// --------- Upload de arquivos vinculados à solicitação ----------
-
-// rota de upload
-app.post(
-  '/solicitacoes/:id/arquivos',
-  authMiddleware,
-  upload.single('file'),
-  async (req, res) => {
-    try {
-      const solicitacaoId = parseInt(req.params.id, 10);
-      const { tipo: tipoUsuario, id: usuarioId } = req.user;
-      const { tipo: tipoArquivo } = req.body;
-
-      if (!Number.isFinite(solicitacaoId)) {
-        return res.status(400).json({ error: 'Solicitação inválida.' });
-      }
-
-      if (!req.file) {
-        return res.status(400).json({ error: 'Arquivo é obrigatório.' });
-      }
-
-      // valida solicitação
-      let query = 'SELECT * FROM solicitacoes WHERE id = $1';
-      const params = [solicitacaoId];
-
-      if (tipoUsuario !== 'admin') {
-        query += ' AND usuario_id = $2';
-        params.push(usuarioId);
-      }
-
-      const existing = await db.query(query, params);
-      if (existing.rows.length === 0) {
-        return res.status(404).json({
-          error: 'Solicitação não encontrada para este usuário.',
-        });
-      }
-
-      // salva no banco
-      const insert = await db.query(
-        `INSERT INTO solicitacao_arquivos
-           (solicitacao_id, tipo, original_name, mime_type, path)
-         VALUES ($1,$2,$3,$4,$5)
-         RETURNING
-           id, solicitacao_id, tipo, original_name, mime_type, path, created_at`,
-        [
-          solicitacaoId,
-          tipoArquivo || 'OUTRO',
-          req.file.originalname,
-          req.file.mimetype,
-          req.file.filename,
-        ]
-      );
-
-      return res.status(201).json(insert.rows[0]);
-    } catch (err) {
-      console.error('Erro em POST /solicitacoes/:id/arquivos:', err);
-      return res
-        .status(500)
-        .json({ error: 'Erro ao anexar arquivo à solicitação.' });
-    }
-  }
-);
-
-// rota serve arquivos estáticos
-app.use('/uploads', express.static(uploadDir));
-
 
 // Atualizar solicitação
 app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
@@ -546,12 +534,14 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
       params.push(usuarioId);
     }
 
-    const existing = await db.query(query, params);
-    if (existing.rows.length === 0) {
+    const existingResult = await db.query(query, params);
+    if (existingResult.rows.length === 0) {
       return res
         .status(404)
         .json({ error: 'Solicitação não encontrada para este usuário.' });
     }
+
+    const existing = existingResult.rows[0];
 
     const {
       status,
@@ -562,58 +552,98 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
       data,
       valor,
       valor_solicitado,
-      descricao, // 🔹 LENDO DESCRIÇÃO DO BODY TAMBÉM
+      descricao,    // 🔹 descrição
+      statusDate,   // 🔹 data da movimentação (vem do front)
     } = req.body;
 
     const protocoloFinal =
-      protocolo || nr_protocolo || numero_protocolo || existing.rows[0].protocolo || null;
+      protocolo || nr_protocolo || numero_protocolo || existing.protocolo || null;
 
     const dataSolicFinal =
       data_solicitacao ||
       data ||
-      existing.rows[0].data_solicitacao ||
-      existing.rows[0].data_nf ||
+      existing.data_solicitacao ||
+      existing.data_nf ||
       null;
 
     const valorFinal =
       valor_solicitado ??
       valor ??
-      existing.rows[0].valor ??
-      existing.rows[0].valor_nf ??
+      existing.valor ??
+      existing.valor_nf ??
       null;
 
     const descricaoFinal =
-      descricao ?? existing.rows[0].descricao ?? null; // 🔹 SE NÃO VIER NADA, MANTÉM A ATUAL
+      descricao ?? existing.descricao ?? null;
 
-    const result = await db.query(
+    const statusFinal =
+      status || existing.status || null;
+
+    // 🔹 Data da última mudança: se veio uma data explícita, usamos; senão mantemos
+    let dataUltimaMudancaFinal =
+      existing.data_ultima_mudanca ||
+      existing.data_solicitacao ||
+      existing.data_nf ||
+      null;
+
+    if (status && statusDate) {
+      dataUltimaMudancaFinal = statusDate;
+    }
+
+    const updateResult = await db.query(
       `UPDATE solicitacoes
        SET
-         status           = COALESCE($1, status),
-         protocolo        = COALESCE($2, protocolo),
-         data_solicitacao = COALESCE($3, data_solicitacao),
-         valor            = COALESCE($4, valor),
-         descricao        = COALESCE($5, descricao),  -- 🔹 ATUALIZA A DESCRIÇÃO
-         data_ultima_mudanca = NOW()
-       WHERE id = $6
+         status              = COALESCE($1, status),
+         protocolo           = COALESCE($2, protocolo),
+         data_solicitacao    = COALESCE($3, data_solicitacao),
+         valor               = COALESCE($4, valor),
+         descricao           = COALESCE($5, descricao),
+         data_ultima_mudanca = COALESCE($6, data_ultima_mudanca)
+       WHERE id = $7
        RETURNING *`,
       [
-        status || null,
+        statusFinal,
         protocoloFinal,
         dataSolicFinal,
         valorFinal,
         descricaoFinal,
+        dataUltimaMudancaFinal,
         solId,
       ]
     );
 
-    return res.json(result.rows[0]);
+    const updated = updateResult.rows[0];
+
+    // 2) Registrar a movimentação no histórico (sem travar nada se der erro)
+    if (status && statusDate) {
+      try {
+        await db.query(
+          `INSERT INTO solicitacao_status_history (
+            solicitacao_id,
+            status,
+            data_movimentacao,
+            origem,
+            obs
+          ) VALUES ($1,$2,$3,$4,$5)`,
+          [
+            solId,
+            status,
+            statusDate,
+            'API',
+            'Movimentação de status via aplicação',
+          ]
+        );
+      } catch (errHist) {
+        console.error('Erro ao inserir histórico de status:', errHist);
+      }
+    }
+
+    return res.json(updated);
   } catch (err) {
     console.error('Erro em PUT /solicitacoes/:id:', err);
     return res.status(500).json({ error: 'Erro ao atualizar solicitação.' });
   }
 });
-
-
 
 // Excluir solicitação + anexos vinculados
 app.delete('/solicitacoes/:id', authMiddleware, async (req, res) => {
