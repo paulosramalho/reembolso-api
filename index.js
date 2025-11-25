@@ -401,23 +401,25 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
   try {
     const { id: usuarioId } = req.user;
     const {
-      solicitante_nome,
-      beneficiario_nome,
-      beneficiario_doc,
-      numero_nf,
-      data_nf,
-      valor_nf,
-      emitente_nome,
-      emitente_doc,
-      status,
-      protocolo,
-      nr_protocolo,
-      numero_protocolo,
-      valor,
-      valor_solicitado,
-      data_solicitacao,
-      data
-    } = req.body;
+  solicitante_nome,
+  beneficiario_nome,
+  beneficiario_doc,
+  numero_nf,
+  data_nf,
+  valor_nf,
+  emitente_nome,
+  emitente_doc,
+  status,
+  protocolo,
+  nr_protocolo,
+  numero_protocolo,
+  valor,
+  valor_solicitado,
+  data_solicitacao,
+  data,
+  descricao   // 👈 AGORA LEMOS A DESCRIÇÃO
+} = req.body;
+
 
     const protocoloFinal =
       protocolo || nr_protocolo || numero_protocolo || null;
@@ -426,44 +428,47 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
     const dataSolicFinal = data_solicitacao || data || new Date();
 
     const valorFinal =
-      (valor_solicitado ?? valor ?? valor_nf) ?? null;
+  (valor_solicitado ?? valor ?? valor_nf) ?? null;
 
-    const statusInicial = status || 'Em análise';
+const statusInicial = status || 'Em análise';
 
-    const insertResult = await db.query(
-      `INSERT INTO solicitacoes (
-        usuario_id,
-        solicitante_nome,
-        beneficiario_nome,
-        beneficiario_doc,
-        numero_nf,
-        data_nf,
-        valor_nf,
-        emitente_nome,
-        emitente_doc,
-        status,
-        protocolo,
-        data_solicitacao,
-        valor
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-      RETURNING *`,
-      [
-        usuarioId,
-        solicitante_nome || null,
-        beneficiario_nome || null,
-        beneficiario_doc || null,
-        numero_nf || null,
-        data_nf || null,
-        valor_nf || valorFinal || null,
-        emitente_nome || null,
-        emitente_doc || null,
-        statusInicial,
-        protocoloFinal,
-        dataSolicFinal,   // 🔹 grava exatamente a data da solicitação
-        valorFinal
-      ]
-    );
+const insertResult = await db.query(
+  `INSERT INTO solicitacoes (
+    usuario_id,
+    solicitante_nome,
+    beneficiario_nome,
+    beneficiario_doc,
+    numero_nf,
+    data_nf,
+    valor_nf,
+    emitente_nome,
+    emitente_doc,
+    status,
+    protocolo,
+    data_solicitacao,
+    valor,
+    descricao
+  )
+  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+  RETURNING *`,
+  [
+    usuarioId,
+    solicitante_nome || null,
+    beneficiario_nome || null,
+    beneficiario_doc || null,
+    numero_nf || null,
+    data_nf || null,
+    valor_nf || valorFinal || null,
+    emitente_nome || null,
+    emitente_doc || null,
+    statusInicial,
+    protocoloFinal,
+    dataSolicFinal,
+    valorFinal,
+    descricao || null
+  ]
+);
+
 
     const created = insertResult.rows[0];
 
@@ -599,16 +604,18 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
     const existing = existingResult.rows[0];
 
     const {
-      status,
-      protocolo,
-      nr_protocolo,
-      numero_protocolo,
-      data_solicitacao,
-      data,
-      valor,
-      valor_solicitado,
-      statusDate // data da movimentação (digitada na tela, usada em lote)
-    } = req.body;
+  status,
+  protocolo,
+  nr_protocolo,
+  numero_protocolo,
+  data_solicitacao,
+  data,
+  valor,
+  valor_solicitado,
+  statusDate, // data da movimentação (digitada na tela, usada em lote)
+  descricao
+} = req.body;
+
 
     const protocoloFinal =
       protocolo ||
@@ -633,16 +640,18 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
     const statusFinal = status || existing.status;
 
     const updateResult = await db.query(
-      `UPDATE solicitacoes
-       SET
-         status           = COALESCE($1, status),
-         protocolo        = COALESCE($2, protocolo),
-         data_solicitacao = COALESCE($3, data_solicitacao),
-         valor            = COALESCE($4, valor)
-       WHERE id = $5
-       RETURNING *`,
-      [statusFinal, protocoloFinal, dataSolicFinal, valorFinal, solId]
-    );
+  `UPDATE solicitacoes
+   SET
+     status           = COALESCE($1, status),
+     protocolo        = COALESCE($2, protocolo),
+     data_solicitacao = COALESCE($3, data_solicitacao),
+     valor            = COALESCE($4, valor),
+     descricao        = COALESCE($5, descricao)
+   WHERE id = $6
+   RETURNING *`,
+  [statusFinal, protocoloFinal, dataSolicFinal, valorFinal, descricaoFinal, solId]
+);
+
 
     const updated = updateResult.rows[0];
 
