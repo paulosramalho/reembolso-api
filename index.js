@@ -419,6 +419,7 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
     const protocoloFinal =
       protocolo || nr_protocolo || numero_protocolo || null;
 
+    // 🔹 Data da solicitação vinda do front
     const dataSolicFinal = data_solicitacao || data || null;
 
     const valorFinal =
@@ -456,17 +457,18 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
         emitente_doc || null,
         statusInicial,
         protocoloFinal,
-        dataSolicFinal,
+        dataSolicFinal,   // 🔹 grava exatamente a data da solicitação
         valorFinal
       ]
     );
 
     const created = insertResult.rows[0];
 
-    // Histórico inicial de status
+    // 🔹 Histórico inicial de status usando a MESMA data da solicitação
     try {
       const dataHist =
-        created.data_solicitacao ||
+        dataSolicFinal ||           // prioriza a data que veio do front
+        created.data_solicitacao || // fallback: o que ficou no banco
         created.data_nf ||
         new Date();
 
