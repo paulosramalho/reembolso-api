@@ -350,19 +350,19 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
           WHERE a.solicitacao_id = s.id
         ) AS "docsExtrasCount",
         (
-          SELECT COALESCE(
-            json_agg(
-              json_build_object(
-                'status', h.status,
-                'date',   h.data_movimentacao
-              )
-              ORDER BY h.data_movimentacao
-            ),
-            '[]'::json
-          )
-          FROM solicitacao_status_history h
-          WHERE h.solicitacao_id = s.id
-        ) AS status_history
+  SELECT COALESCE(
+    json_agg(h),
+    '[]'::json
+  )
+  FROM (
+    SELECT
+      h.status,
+      h.data_movimentacao AS date
+    FROM solicitacao_status_history h
+    WHERE h.solicitacao_id = s.id
+    ORDER BY h.data_movimentacao
+  ) h
+) AS status_history
       FROM solicitacoes s
       JOIN usuarios u ON u.id = s.usuario_id
     `;
