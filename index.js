@@ -14,7 +14,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'reembolso-super-secreto';
 
 app.use(cors());
 app.use(express.json());
-// --------- Upload de arquivos (NF / Comprovantes) ----------
+// --------- Upload de arquivos (NF / Comprovantes) -----------
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
