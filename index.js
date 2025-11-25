@@ -328,12 +328,13 @@ app.get('/auth/me', authMiddleware, (req, res) => {
 
 // --------- Rotas de solicitações ----------
 
-// Listar solicitações (já trazendo histórico de status)
+// Listar solicitações (histórico opcional, não quebra a rota)
 app.get('/solicitacoes', authMiddleware, async (req, res) => {
   try {
     const { id, tipo } = req.user;
 
-    const baseSelect = `
+    // 1) Busca básica das solicitações (como era antes)
+    let queryBase = `
       SELECT
         s.*,
         u.nome  AS usuario_nome,
@@ -342,44 +343,55 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
           SELECT COUNT(*)::int
           FROM solicitacao_arquivos a
           WHERE a.solicitacao_id = s.id
-        ) AS "docsExtrasCount",
-        (
-          SELECT COALESCE(
-            json_agg(h),
-            '[]'::json
-          )
-          FROM (
-            SELECT
-              h.status,
-              h.data_movimentacao AS date
-            FROM solicitacao_status_history h
-            WHERE h.solicitacao_id = s.id
-            ORDER BY h.data_movimentacao
-          ) h
-        ) AS status_history
+        ) AS "docsExtrasCount"
       FROM solicitacoes s
       JOIN usuarios u ON u.id = s.usuario_id
     `;
-
-    let query;
-    let params = [];
+    const params = [];
 
     if (tipo === 'admin') {
-      // Admin vê todas
-      query = baseSelect + ' ORDER BY s.id DESC';
+      queryBase += ' ORDER BY s.id DESC';
     } else {
-      // Usuário comum vê só as dele
-      query = baseSelect + ' WHERE s.usuario_id = $1 ORDER BY s.id DESC';
-      params = [id];
+      queryBase += ' WHERE s.usuario_id = $1 ORDER BY s.id DESC';
+      params.push(id);
     }
 
-    const result = await db.query(query, params);
-    return res.json(result.rows);
+    const result = await db.query(queryBase, params);
+    const rows = result.rows;
+
+    // 2) Tenta buscar o histórico em uma segunda passada, mas sem derrubar nada
+    try {
+      for (const row of rows) {
+        const histRes = await db.query(
+          `
+            SELECT
+              status,
+              data_movimentacao AS date
+            FROM solicitacao_status_history
+            WHERE solicitacao_id = $1
+            ORDER BY data_movimentacao
+          `,
+          [row.id]
+        );
+        row.status_history = histRes.rows; // array de { status, date }
+      }
+    } catch (e) {
+      console.error('Falha ao carregar histórico de status (usando fallback):', e);
+      // Se der erro aqui (tabela/coluna/etc), simplesmente não adiciona status_history
+      for (const row of rows) {
+        if (!row.status_history) {
+          row.status_history = [];
+        }
+      }
+    }
+
+    return res.json(rows);
   } catch (err) {
-    console.error('Erro em GET /solicitacoes:', err);
+    console.error('Erro em GET /solicitacoes (nível principal):', err);
     return res.status(500).json({ error: 'Erro ao listar solicitações.' });
   }
 });
+
 
 // Criar nova solicitação (já grava o status inicial no histórico)
 app.post('/solicitacoes', authMiddleware, async (req, res) => {
