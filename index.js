@@ -574,84 +574,144 @@ app.post(
 app.use('/uploads', express.static(uploadDir));
 
 // Atualizar solicitação (e registrar cada troca de status no histórico)
-app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
+app.put('/solicitacoes/:id', async (req, res) => {
+  const solId = Number(req.params.id);
+  if (!Number.isFinite(solId)) {
+    return res.status(400).json({ error: 'ID inválido.' });
+  }
+
   try {
-    const solId = parseInt(req.params.id, 10);
+    // 1) Busca registro atual
+    const existingResult = await db.query(
+      'SELECT * FROM solicitacoes WHERE id = $1',
+      [solId]
+    );
 
-    if (Number.isNaN(solId)) {
-      return res.status(400).json({ error: 'ID inválido.' });
-    }
-
-    const { id: usuarioId, tipo } = req.user;
-
-    // 1) Buscar a solicitação atual (respeitando admin / user)
-    let query = 'SELECT * FROM solicitacoes WHERE id = $1';
-    const params = [solId];
-
-    if (tipo !== 'admin') {
-      query += ' AND usuario_id = $2';
-      params.push(usuarioId);
-    }
-
-    const existingResult = await db.query(query, params);
-
-    if (existingResult.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ error: 'Solicitação não encontrada para este usuário.' });
+    if (!existingResult.rows.length) {
+      return res.status(404).json({ error: 'Solicitação não encontrada.' });
     }
 
     const existing = existingResult.rows[0];
 
+    // 2) Campos que podem vir do front
     const {
-  status,
-  protocolo,
-  nr_protocolo,
-  numero_protocolo,
-  data_solicitacao,
-  data,
-  valor,
-  valor_solicitado,
-  statusDate, // data da movimentação (digitada na tela, usada em lote)
-  descricao
-} = req.body;
+      status,
+      protocolo,
+      nr_protocolo,
+      numero_protocolo,
+      data_solicitacao,
+      data,
+      valor,
+      valor_solicitado,
+      statusDate,
+      valorReembolso,
+      dataPagamento,
+      descricao,
+      obs, // para histórico, se vier
+    } = req.body;
 
+    // helper para número
+    const toNum = (x) => {
+      if (typeof x === 'number') {
+        return Number.isFinite(x) ? x : null;
+      }
+      if (typeof x === 'string' && x.trim()) {
+        const cleaned = x.replace(/\./g, '').replace(',', '.');
+        const n = Number(cleaned);
+        return Number.isFinite(n) ? n : null;
+      }
+      return null;
+    };
+
+    // 3) Calcula valores finais (usando o que veio OU o que já existe)
+    const prevStatus = existing.status;
+    const statusFinal = status ?? prevStatus;
 
     const protocoloFinal =
-      protocolo ||
-      nr_protocolo ||
-      numero_protocolo ||
-      existing.protocolo ||
+      (protocolo || nr_protocolo || numero_protocolo) ??
+      existing.protocolo ??
       null;
 
     const dataSolicFinal =
       data_solicitacao ||
       data ||
       existing.data_solicitacao ||
-      existing.data_nf ||
+      existing.data ||
       null;
 
-    const valorFinal =
-      (valor_solicitado ??
-        valor ??
-        existing.valor ??
-        existing.valor_nf) ?? null;
+    let valorFinal = toNum(valor);
+    if (valorFinal == null) valorFinal = toNum(valor_solicitado);
+    if (valorFinal == null) valorFinal = existing.valor;
 
-    const statusFinal = status || existing.status;
+    const descricaoFinal = descricao ?? existing.descricao ?? null;
 
+    const dataPagamentoFinal =
+      dataPagamento || existing.data_pagamento || null;
+
+    const valorReembolsoFinal =
+      toNum(valorReembolso) ?? existing.valor_reembolso ?? null;
+
+    // 4) Atualiza a tabela principal
     const updateResult = await db.query(
-  `UPDATE solicitacoes
-   SET
-     status           = COALESCE($1, status),
-     protocolo        = COALESCE($2, protocolo),
-     data_solicitacao = COALESCE($3, data_solicitacao),
-     valor            = COALESCE($4, valor),
-     descricao        = COALESCE($5, descricao)
-   WHERE id = $6
-   RETURNING *`,
-  [statusFinal, protocoloFinal, dataSolicFinal, valorFinal, descricaoFinal, solId]
-);
+      `
+      UPDATE solicitacoes
+         SET status           = $1,
+             protocolo        = $2,
+             data_solicitacao = $3,
+             valor            = $4,
+             descricao        = $5,
+             data_pagamento   = $6,
+             valor_reembolso  = $7
+       WHERE id = $8
+       RETURNING *
+      `,
+      [
+        statusFinal,
+        protocoloFinal,
+        dataSolicFinal,
+        valorFinal,
+        descricaoFinal,
+        dataPagamentoFinal,
+        valorReembolsoFinal,
+        solId,
+      ]
+    );
 
+    const updated = updateResult.rows[0];
+
+    // 5) Histórico de status
+    const mudouStatus = statusFinal && statusFinal !== prevStatus;
+
+    // data da movimentação (pra history)
+    let movDate = statusDate || dataPagamento || data_solicitacao;
+    if (!movDate) {
+      // se nada veio, usa hoje
+      movDate = new Date().toISOString().slice(0, 10);
+    }
+
+    if (mudouStatus || statusDate) {
+      await db.query(
+        `
+        INSERT INTO solicitacao_status_history
+          (solicitacao_id, status, data, origem, obs)
+        VALUES ($1, $2, $3, $4, $5)
+        `,
+        [
+          solId,
+          statusFinal,
+          movDate,       // timestamp/date
+          'API',         // origem
+          obs || null,   // observação opcional
+        ]
+      );
+    }
+
+    return res.json(updated);
+  } catch (err) {
+    console.error('Erro em PUT /solicitacoes/:id', err);
+    return res.status(500).json({ error: 'Erro ao atualizar solicitação.' });
+  }
+});
 
     const updated = updateResult.rows[0];
 
