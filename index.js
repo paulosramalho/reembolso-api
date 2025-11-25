@@ -362,19 +362,22 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
     // 2) Tenta buscar o histórico em uma segunda passada, mas sem derrubar nada
     try {
       for (const row of rows) {
-        const histRes = await db.query(
-          `
-            SELECT
-              status,
-              data_movimentacao AS date
-            FROM solicitacao_status_history
-            WHERE solicitacao_id = $1
-            ORDER BY data_movimentacao
-          `,
-          [row.id]
-        );
-        row.status_history = histRes.rows; // array de { status, date }
-      }
+  const histRes = await db.query(
+    `
+      SELECT
+        status,
+        data       AS date,
+        origem,
+        obs
+      FROM solicitacao_status_history
+      WHERE solicitacao_id = $1
+      ORDER BY data
+    `,
+    [row.id]
+  );
+  row.status_history = histRes.rows; // agora vem do banco de verdade
+}
+
     } catch (e) {
       console.error('Falha ao carregar histórico de status (usando fallback):', e);
       // Se der erro aqui (tabela/coluna/etc), simplesmente não adiciona status_history
@@ -464,26 +467,33 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
 
     const created = insertResult.rows[0];
 
-    // 🔹 Histórico inicial de status usando a MESMA data da solicitação
-    try {
-      const dataHist =
-  dataSolicFinal ||
-  created.data_solicitacao ||
-  new Date();  // ❌ created.data_nf não é data de status
+    // Histórico inicial de status
+try {
+  const dataHist =
+    dataSolicFinal ||          // data que veio da tela (Data da Solicitação)
+    created.data_solicitacao ||// o que ficou salvo na tabela
+    new Date();                // fallback
 
-
-      await db.query(
-        `INSERT INTO solicitacao_status_history (
-          solicitacao_id,
-          status,
-          data_movimentacao
-        ) VALUES ($1,$2,$3)`,
-        [created.id, statusInicial, dataHist]
-      );
-    } catch (errHist) {
-  console.error('🔥 ERRO AO INSERIR HISTÓRICO:', errHist.message);
-  console.error('SQL ERROR DETAIL:', errHist);
+  await db.query(
+    `INSERT INTO solicitacao_status_history (
+      solicitacao_id,
+      status,
+      data,
+      origem,
+      obs
+    ) VALUES ($1,$2,$3,$4,$5)`,
+    [
+      created.id,
+      statusInicial,
+      dataHist,
+      'Criação',
+      'Status inicial da solicitação'
+    ]
+  );
+} catch (errHist) {
+  console.error('🔥 ERRO AO INSERIR HISTÓRICO INICIAL:', errHist);
 }
+
 
     return res.status(201).json(created);
   } catch (err) {
@@ -637,25 +647,33 @@ app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
     const updated = updateResult.rows[0];
 
         // 2) Registrar histórico de status em toda troca
-    if (status) {
-      try {
-        const dataMov =
-          statusDate ||        // se a tela mandou uma data de movimentação, usa ela
-          new Date();          // senão, registra a data/hora exata da troca
+if (status != null) { // qualquer mudança de status entra aqui
+  try {
+    const dataMov =
+      statusDate ||    // se veio data da tela (Kanban), usa ela
+      new Date();      // senão, usa a data/hora da alteração
 
-        await db.query(
-          `INSERT INTO solicitacao_status_history (
-            solicitacao_id,
-            status,
-            data_movimentacao
-          ) VALUES ($1,$2,$3)`,
-          [solId, status, dataMov]
-        );
-      } catch (errHist) {
-        console.error('Erro ao gravar histórico de status:', errHist);
-        // não derruba a atualização principal
-      }
-    }
+    await db.query(
+      `INSERT INTO solicitacao_status_history (
+        solicitacao_id,
+        status,
+        data,
+        origem,
+        obs
+      ) VALUES ($1,$2,$3,$4,$5)`,
+      [
+        solId,
+        status,
+        dataMov,
+        'API',
+        'Movimentação de status via aplicação'
+      ]
+    );
+  } catch (errHist) {
+    console.error('🔥 ERRO AO INSERIR HISTÓRICO (PUT):', errHist);
+  }
+}
+
 
     return res.json(updated);
   } catch (err) {
