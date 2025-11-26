@@ -702,45 +702,6 @@ app.put('/solicitacoes/:id', async (req, res) => {
   }
 });
 
-
-    const updated = updateResult.rows[0];
-
-        // 2) Registrar histórico de status em toda troca
-if (status != null) { // qualquer mudança de status entra aqui
-  try {
-    const dataMov =
-      statusDate ||    // se veio data da tela (Kanban), usa ela
-      new Date();      // senão, usa a data/hora da alteração
-
-    await db.query(
-      `INSERT INTO solicitacao_status_history (
-        solicitacao_id,
-        status,
-        data,
-        origem,
-        obs
-      ) VALUES ($1,$2,$3,$4,$5)`,
-      [
-        solId,
-        status,
-        dataMov,
-        'API',
-        'Movimentação de status via aplicação'
-      ]
-    );
-  } catch (errHist) {
-    console.error('🔥 ERRO AO INSERIR HISTÓRICO (PUT):', errHist);
-  }
-}
-
-
-    return res.json(updated);
-  } catch (err) {
-    console.error('Erro em PUT /solicitacoes/:id:', err);
-    return res.status(500).json({ error: 'Erro ao atualizar solicitação.' });
-  }
-});
-
 // Excluir solicitação + anexos vinculados
 app.delete('/solicitacoes/:id', authMiddleware, async (req, res) => {
   try {
