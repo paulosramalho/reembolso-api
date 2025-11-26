@@ -604,8 +604,6 @@ app.put('/solicitacoes/:id', async (req, res) => {
       valor,
       valor_solicitado,
       statusDate,
-      valorReembolso,
-      dataPagamento,
       descricao,
       obs
     } = req.body;
@@ -636,11 +634,7 @@ app.put('/solicitacoes/:id', async (req, res) => {
 
     const descricaoFinal = descricao ?? existing.descricao ?? null;
 
-    const dataPagamentoFinal = dataPagamento || existing.data_pagamento || null;
-    const valorReembolsoFinal =
-      toNum(valorReembolso) ?? existing.valor_reembolso ?? null;
-
-    // 4) Update principal
+    // 4) Update principal (sem data_pagamento / valor_reembolso)
     const updateResult = await db.query(
       `
       UPDATE solicitacoes
@@ -648,10 +642,8 @@ app.put('/solicitacoes/:id', async (req, res) => {
              protocolo        = $2,
              data_solicitacao = $3,
              valor            = $4,
-             descricao        = $5,
-             data_pagamento   = $6,
-             valor_reembolso  = $7
-       WHERE id = $8
+             descricao        = $5
+       WHERE id = $6
        RETURNING *
       `,
       [
@@ -660,8 +652,6 @@ app.put('/solicitacoes/:id', async (req, res) => {
         dataSolicFinal,
         valorFinal,
         descricaoFinal,
-        dataPagamentoFinal,
-        valorReembolsoFinal,
         solId,
       ]
     );
@@ -669,14 +659,12 @@ app.put('/solicitacoes/:id', async (req, res) => {
     const updated = updateResult.rows[0];
 
     // ===== HISTÓRICO =====
-
     const mudouStatus = statusFinal !== prevStatus;
 
     let movDate =
-      statusDate ||
-      dataPagamento ||
-      data_solicitacao ||
-      new Date().toISOString().slice(0, 10);
+      statusDate ||        // data digitada (Kanban / modal)
+      data_solicitacao ||  // se vier data de solicitação da tela
+      new Date().toISOString().slice(0, 10); // fallback: hoje (ISO só data)
 
     if (mudouStatus || statusDate) {
       await db.query(
