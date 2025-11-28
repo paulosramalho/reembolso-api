@@ -636,8 +636,10 @@ app.put('/solicitacoes/:id', async (req, res) => {
 
     const descricaoFinal = descricao ?? existing.descricao ?? null;
 
-    const dataPagamentoFinal =
-      dataPagamento || existing.data_pagamento || null;
+        const dataPagamentoFinal = Object.prototype.hasOwnProperty.call(req.body, 'dataPagamento')
+      ? dataPagamento
+      : existing.data_pagamento;
+
 
     const valorReembolsoFinal =
       toNum(valorReembolso) ?? existing.valor_reembolso ?? null;
