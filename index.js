@@ -334,12 +334,12 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
     const { id, tipo } = req.user;
 
     // 1) Busca básica das solicitações (como era antes)
-    let queryBase = `
-            SELECT
+        let queryBase = `
+      SELECT
         s.*,
-        u.nome     AS usuario_nome,
-        u.email    AS usuario_email,
-        u.cpfCnpj  AS "cpfCnpj",
+        u.nome    AS usuario_nome,
+        u.email   AS usuario_email,
+        u.cpfcnpj AS cpfcnpj,
         (
           SELECT COUNT(*)::int
           FROM solicitacao_arquivos a
@@ -348,6 +348,7 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
       FROM solicitacoes s
       JOIN usuarios u ON u.id = s.usuario_id
     `;
+
     const params = [];
 
     if (tipo === 'admin') {
