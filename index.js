@@ -95,7 +95,7 @@ app.post('/auth/login', async (req, res) => {
     const login = email.trim();
 
     const result = await db.query(
-      `SELECT id, nome, email, senha_hash, tipo, ativo, cpfCnpj, telefone
+      `SELECT id, nome, email, senha_hash, tipo, ativo, cpfcnpj, telefone
        FROM usuarios
        WHERE email = $1 OR nome = $1
        LIMIT 1`,
@@ -126,7 +126,7 @@ app.post('/auth/login', async (req, res) => {
       nome: user.nome,
       email: user.email,
       tipo: user.tipo,
-      cpfCnpj: user.cpfcnpj,
+      cpfcnpj: user.cpfcnpj,
       telefone: user.telefone
     };
 
@@ -201,7 +201,7 @@ app.get('/usuarios', authMiddleware, async (req, res) => {
          email,
          tipo,
          ativo,
-         cpfCnpj AS "cpfCnpj",
+         cpfcnpj AS "cpfcnpj",
          telefone
        FROM usuarios
        ORDER BY id ASC`
@@ -217,7 +217,7 @@ app.get('/usuarios', authMiddleware, async (req, res) => {
 // Cria um novo usuário "solicitante" a partir da Configuração
 app.post('/usuarios', authMiddleware, async (req, res) => {
   try {
-    const { nome, email, tipo, cpf, cpfCnpj, telefone } = req.body;
+    const { nome, email, tipo, cpf, cpfcnpj, telefone } = req.body;
 
     if (!nome || !email) {
       return res
@@ -240,17 +240,17 @@ app.post('/usuarios', authMiddleware, async (req, res) => {
         ? String(tipo).toLowerCase()
         : 'user';
 
-    // Documento: tenta cpfCnpj, depois cpf
-    const doc = (cpfCnpj || cpf || '').trim() || null;
+    // Documento: tenta cpfcnpj, depois cpf
+    const doc = (cpfcnpj || cpf || '').trim() || null;
 
     // Senha padrão
     const senhaPadrao = '12345';
     const senhaHash = await bcrypt.hash(senhaPadrao, 10);
 
     const result = await db.query(
-      `INSERT INTO usuarios (nome, email, senha_hash, tipo, ativo, cpfCnpj, telefone)
+      `INSERT INTO usuarios (nome, email, senha_hash, tipo, ativo, cpfcnpj, telefone)
        VALUES ($1, $2, $3, $4, true, $5, $6)
-       RETURNING id, nome, email, tipo, ativo, cpfCnpj AS "cpfCnpj", telefone`,
+       RETURNING id, nome, email, tipo, ativo, cpfcnpj AS "cpfcnpj", telefone`,
       [nome, email, senhaHash, userTipo, doc, telefone || null]
     );
 
@@ -261,11 +261,11 @@ app.post('/usuarios', authMiddleware, async (req, res) => {
   }
 });
 
-// Atualiza um usuário existente (nome, e-mail, tipo, ativo, cpfCnpj, telefone)
+// Atualiza um usuário existente (nome, e-mail, tipo, ativo, cpfcnpj, telefone)
 app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nome, email, tipo, ativo, cpf, cpfCnpj, telefone } = req.body;
+    const { nome, email, tipo, ativo, cpf, cpfcnpj, telefone } = req.body;
 
     // Busca atual
     const current = await db.query(
@@ -283,7 +283,7 @@ app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
     const newEmail = email ?? u.email;
     const newTipo = tipo ?? u.tipo;
     const newAtivo = typeof ativo === 'boolean' ? ativo : u.ativo;
-    const newDoc = (cpfCnpj || cpf || u.cpfcnpj || '').trim() || null;
+    const newDoc = (cpfcnpj || cpf || u.cpfcnpj || '').trim() || null;
     const newTelefone = telefone ?? u.telefone;
 
     const result = await db.query(
@@ -293,10 +293,10 @@ app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
          email     = $2,
          tipo      = $3,
          ativo     = $4,
-         cpfCnpj   = $5,
+         cpfcnpj   = $5,
          telefone  = $6
        WHERE id = $7
-       RETURNING id, nome, email, tipo, ativo, cpfCnpj AS "cpfCnpj", telefone`,
+       RETURNING id, nome, email, tipo, ativo, cpfcnpj AS "cpfcnpj", telefone`,
       [newNome, newEmail, newTipo, newAtivo, newDoc, newTelefone, id]
     );
 
