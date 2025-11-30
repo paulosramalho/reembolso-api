@@ -335,10 +335,11 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
 
     // 1) Busca básica das solicitações (como era antes)
     let queryBase = `
-      SELECT
+            SELECT
         s.*,
-        u.nome  AS usuario_nome,
-        u.email AS usuario_email,
+        u.nome     AS usuario_nome,
+        u.email    AS usuario_email,
+        u.cpfCnpj  AS "cpfCnpj",
         (
           SELECT COUNT(*)::int
           FROM solicitacao_arquivos a
