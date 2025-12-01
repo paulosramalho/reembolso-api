@@ -188,6 +188,105 @@ app.post('/auth/alterar-senha', authMiddleware, async (req, res) => {
   }
 });
 
+// Fluxo "Esqueci minha senha": emite token temporário
+// Espera: { email }
+app.post('/auth/esqueci-senha', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res
+        .status(400)
+        .json({ error: 'Informe o e-mail (User ID) para redefinir a senha.' });
+    }
+
+    const login = email.trim();
+
+    const result = await db.query(
+      `SELECT id, email
+       FROM usuarios
+       WHERE email = $1 OR nome = $1
+       LIMIT 1`,
+      [login]
+    );
+
+    if (result.rows.length === 0) {
+      // Não revela se existe ou não, resposta genérica
+      return res.json({
+        message:
+          'Se o usuário existir, um token de redefinição foi gerado com sucesso.',
+      });
+    }
+
+    const user = result.rows[0];
+
+    const resetToken = jwt.sign(
+      {
+        sub: user.id,
+        purpose: 'reset-password',
+      },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    return res.json({
+      message: 'Token de redefinição gerado com sucesso.',
+      resetToken,
+    });
+  } catch (err) {
+    console.error('Erro em /auth/esqueci-senha:', err);
+    return res
+      .status(500)
+      .json({ error: 'Erro ao iniciar fluxo de redefinição de senha.' });
+  }
+});
+
+// Aplica nova senha a partir de um token de redefinição
+// Espera: { token, novaSenha }
+app.post('/auth/reset-senha', async (req, res) => {
+  try {
+    const { token, novaSenha } = req.body;
+
+    if (!token || !novaSenha) {
+      return res
+        .status(400)
+        .json({ error: 'Token e nova senha são obrigatórios.' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return res
+        .status(401)
+        .json({ error: 'Token inválido ou expirado para redefinição.' });
+    }
+
+    if (!decoded || decoded.purpose !== 'reset-password' || !decoded.sub) {
+      return res
+        .status(401)
+        .json({ error: 'Token inválido para redefinição de senha.' });
+    }
+
+    const userId = decoded.sub;
+
+    const novaHash = await bcrypt.hash(novaSenha, 10);
+
+    await db.query(
+      `UPDATE usuarios
+       SET senha_hash = $1
+       WHERE id = $2`,
+      [novaHash, userId]
+    );
+
+    return res.json({ message: 'Senha redefinida com sucesso.' });
+  } catch (err) {
+    console.error('Erro em /auth/reset-senha:', err);
+    return res
+      .status(500)
+      .json({ error: 'Erro ao concluir redefinição de senha.' });
+  }
+});
 
 // --------- Usuários (Configurações) ----------
 
