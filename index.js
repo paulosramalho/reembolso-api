@@ -283,7 +283,18 @@ app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
     const newEmail = email ?? u.email;
     const newTipo = tipo ?? u.tipo;
     const newAtivo = typeof ativo === 'boolean' ? ativo : u.ativo;
-    const newDoc = (cpfcnpj || cpf || u.cpfcnpj || '').trim() || null;
+    // 🔎 Regra para CPF/CNPJ:
+    // - Se o front MANDAR cpf/cpfcnpj (mesmo que null ou ""), usamos o que veio.
+    //   - "" → vira null → LIMPA o campo no banco.
+    // - Se o front NÃO mandar nada (undefined), mantemos o valor antigo.
+    let newDoc;
+    if (typeof cpfcnpj !== 'undefined' || typeof cpf !== 'undefined') {
+      const raw = (cpfcnpj ?? cpf ?? '').toString().trim();
+      newDoc = raw || null; // vazio => null
+    } else {
+      newDoc = u.cpfcnpj;
+    }
+
     const newTelefone = telefone ?? u.telefone;
 
     const result = await db.query(
