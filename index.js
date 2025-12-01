@@ -214,6 +214,36 @@ app.get('/usuarios', authMiddleware, async (req, res) => {
   }
 });
 
+// Busca um usuário específico (para "Meu Perfil")
+app.get('/usuarios/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.query(
+      `SELECT
+         id,
+         nome,
+         email,
+         tipo,
+         ativo,
+         cpfcnpj AS "cpfcnpj",
+         telefone
+       FROM usuarios
+       WHERE id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Erro em GET /usuarios/:id:', err);
+    return res.status(500).json({ error: 'Erro ao buscar usuário.' });
+  }
+});
+
 // Cria um novo usuário "solicitante" a partir da Configuração
 app.post('/usuarios', authMiddleware, async (req, res) => {
   try {
