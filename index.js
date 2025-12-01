@@ -390,6 +390,48 @@ app.post('/usuarios', authMiddleware, async (req, res) => {
   }
 });
 
+// Busca um usuário específico (para tela "Meu Perfil")
+app.get('/usuarios/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.query(
+      `SELECT
+         id,
+         nome,
+         email,
+         tipo,
+         ativo,
+         cpfcnpj,
+         telefone
+       FROM usuarios
+       WHERE id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    const user = result.rows[0];
+
+    return res.json({
+      id: user.id,
+      nome: user.nome,
+      email: user.email,
+      tipo: user.tipo,
+      ativo: user.ativo,
+      cpfcnpj: user.cpfcnpj,
+      telefone: user.telefone,
+    });
+  } catch (err) {
+    console.error('Erro em GET /usuarios/:id:', err);
+    return res
+      .status(500)
+      .json({ error: 'Erro ao buscar dados do usuário.' });
+  }
+});
+
 // Atualiza um usuário existente (nome, e-mail, tipo, ativo, cpfcnpj, telefone)
 app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
   try {
