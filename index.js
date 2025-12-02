@@ -7,6 +7,8 @@ const db = require('./db');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -31,6 +33,37 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
+
+// --------- Nodemailer (para reset de senha) ----------
+let mailTransporter = null;
+
+if (process.env.SMTP_HOST) {
+  mailTransporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: process.env.SMTP_USER
+      ? {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        }
+      : undefined,
+  });
+
+  mailTransporter.verify().then(
+    () => {
+      console.log('SMTP pronto para envio de e-mails de redefinição de senha.');
+    },
+    (err) => {
+      console.error('Falha ao verificar SMTP:', err);
+      mailTransporter = null;
+    }
+  );
+} else {
+  console.warn(
+    '[AVISO] SMTP_HOST não definido. Links de redefinição serão apenas logados no console.'
+  );
+}
 
 // --------- Middleware de autenticação ----------
 function authMiddleware(req, res, next) {
@@ -126,7 +159,7 @@ app.post('/auth/login', async (req, res) => {
       email: user.email,
       tipo: user.tipo,
       cpfcnpj: user.cpfcnpj,
-      telefone: user.telefone
+      telefone: user.telefone,
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });
@@ -134,7 +167,7 @@ app.post('/auth/login', async (req, res) => {
     return res.json({
       token,
       user: payload,
-      primeiroAcesso: usandoSenhaPadrao && senha === senhaPadrao
+      primeiroAcesso: usandoSenhaPadrao && senha === senhaPadrao,
     });
   } catch (err) {
     console.error('Erro em /auth/login:', err);
@@ -151,7 +184,7 @@ app.post('/auth/alterar-senha', authMiddleware, async (req, res) => {
 
     if (!senhaAtual || !novaSenha) {
       return res.status(400).json({
-        error: 'Informe senha atual e nova senha.'
+        error: 'Informe senha atual e nova senha.',
       });
     }
 
@@ -187,7 +220,7 @@ app.post('/auth/alterar-senha', authMiddleware, async (req, res) => {
   }
 });
 
-// Fluxo "Esqueci minha senha": emite token temporário (por e-mail)
+// Fluxo "Esqueci minha senha": gera token e envia link por e-mail
 // Espera: { email }
 app.post('/auth/esqueci-senha', async (req, res) => {
   try {
@@ -196,59 +229,84 @@ app.post('/auth/esqueci-senha', async (req, res) => {
     if (!email) {
       return res
         .status(400)
-        .json({ error: 'Informe o e-mail para redefinir a senha.' });
+        .json({ error: 'Informe o e-mail (User ID) para redefinir a senha.' });
     }
 
-    const login = email.trim().toLowerCase();
+    const login = email.trim();
 
     const result = await db.query(
       `SELECT id, email, ativo
        FROM usuarios
-       WHERE LOWER(email) = $1
+       WHERE email = $1 OR nome = $1
        LIMIT 1`,
       [login]
     );
 
-    // Resposta SEMPRE genérica, mesmo se não existir/for inativo
-    if (result.rows.length === 0 || result.rows[0].ativo === false) {
-      return res.json({
-        message:
-          'Se o usuário existir e estiver ativo, você receberá um e-mail com as instruções para redefinir a senha.'
-      });
+    // Resposta SEM revelar se o usuário existe ou não
+    const genericResponse = {
+      message:
+        'Se o usuário existir e estiver ativo, enviamos um e-mail com o link para redefinição de senha.',
+    };
+
+    if (result.rows.length === 0) {
+      return res.json(genericResponse);
     }
 
     const user = result.rows[0];
 
-    // Gera token JWT específico para reset de senha (1h)
-    const resetToken = jwt.sign(
-      {
-        sub: user.id,
-        purpose: 'reset-password',
-      },
-      JWT_SECRET,
-      { expiresIn: '1h' }
+    if (!user.ativo) {
+      // Mesmo comportamento: não revela status
+      return res.json(genericResponse);
+    }
+
+    // Gera token randômico e expira em 1h
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1h
+
+    await db.query(
+      `UPDATE usuarios
+       SET reset_token = $1,
+           reset_token_expires = $2
+       WHERE id = $3`,
+      [resetToken, expiresAt, user.id]
     );
 
-    // Base do app para montar o link (pode vir do .env)
-    const APP_BASE =
-      process.env.PUBLIC_APP_BASE ||
-      process.env.APP_BASE_URL ||
-      'http://localhost:5173';
-
-    const resetUrl = `${APP_BASE}/login?reset=${encodeURIComponent(
+    const appBase = (process.env.APP_BASE_URL || 'http://localhost:5173').replace(/\/+$/, '');
+    const resetLink = `${appBase}/login?resetToken=${encodeURIComponent(
       resetToken
     )}&email=${encodeURIComponent(user.email)}`;
 
-    // Aqui seria o envio de e-mail de verdade.
-    // Por enquanto, apenas loga no servidor (ambiente de desenvolvimento):
-    console.log('🔐 Link de redefinição de senha gerado para', user.email);
-    console.log('👉', resetUrl);
+    // Envia e-mail se SMTP configurado
+    if (mailTransporter) {
+      try {
+        await mailTransporter.sendMail({
+          from: process.env.MAIL_FROM || 'no-reply@reembolso.local',
+          to: user.email,
+          subject: 'Redefinição de senha - Controle de Reembolso',
+          text: [
+            'Você solicitou a redefinição da sua senha no Controle de Reembolso.',
+            'Se você não fez essa solicitação, ignore este e-mail.',
+            '',
+            `Para redefinir sua senha, acesse o link abaixo (válido por 1 hora):`,
+            resetLink,
+          ].join('\n'),
+          html: `
+            <p>Você solicitou a redefinição da sua senha no <strong>Controle de Reembolso</strong>.</p>
+            <p>Se você não fez essa solicitação, ignore este e-mail.</p>
+            <p>Para redefinir sua senha, clique no link abaixo (válido por 1 hora):</p>
+            <p><a href="${resetLink}">${resetLink}</a></p>
+          `,
+        });
+      } catch (mailErr) {
+        console.error('Erro ao enviar e-mail de redefinição:', mailErr);
+        // Não expõe erro de SMTP pro usuário final
+      }
+    } else {
+      console.log('*** Link de redefinição de senha ***');
+      console.log(resetLink);
+    }
 
-    // Resposta genérica segura
-    return res.json({
-      message:
-        'Se o usuário existir e estiver ativo, você receberá um e-mail com as instruções para redefinir a senha.'
-    });
+    return res.json(genericResponse);
   } catch (err) {
     console.error('Erro em /auth/esqueci-senha:', err);
     return res
@@ -269,30 +327,46 @@ app.post('/auth/reset-senha', async (req, res) => {
         .json({ error: 'Token e nova senha são obrigatórios.' });
     }
 
-    let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch (err) {
+    if (novaSenha.length < 4) {
       return res
-        .status(401)
-        .json({ error: 'Token inválido ou expirado para redefinição.' });
+        .status(400)
+        .json({ error: 'Use uma senha com pelo menos 4 caracteres.' });
     }
 
-    if (!decoded || decoded.purpose !== 'reset-password' || !decoded.sub) {
+    const result = await db.query(
+      `SELECT id, reset_token_expires
+       FROM usuarios
+       WHERE reset_token = $1
+       LIMIT 1`,
+      [token]
+    );
+
+    if (result.rows.length === 0) {
       return res
         .status(401)
-        .json({ error: 'Token inválido para redefinição de senha.' });
+        .json({ error: 'Token inválido ou já utilizado para redefinição.' });
     }
 
-    const userId = decoded.sub;
+    const user = result.rows[0];
+
+    if (
+      !user.reset_token_expires ||
+      new Date(user.reset_token_expires).getTime() < Date.now()
+    ) {
+      return res
+        .status(401)
+        .json({ error: 'Token expirado para redefinição de senha.' });
+    }
 
     const novaHash = await bcrypt.hash(novaSenha, 10);
 
     await db.query(
       `UPDATE usuarios
-       SET senha_hash = $1
+       SET senha_hash = $1,
+           reset_token = NULL,
+           reset_token_expires = NULL
        WHERE id = $2`,
-      [novaHash, userId]
+      [novaHash, user.id]
     );
 
     return res.json({ message: 'Senha redefinida com sucesso.' });
@@ -464,4 +538,746 @@ app.patch('/usuarios/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Usuário não encontrado.' });
     }
 
-    const
+    const u = current.rows[0];
+
+    const newNome = nome ?? u.nome;
+    const newEmail = email ?? u.email;
+    const newTipo = tipo ?? u.tipo;
+    const newAtivo = typeof ativo === 'boolean' ? ativo : u.ativo;
+    // 🔎 Regra para CPF/CNPJ:
+    // - Se o front MANDAR cpf/cpfcnpj (mesmo que null ou ""), usamos o que veio.
+    //   - "" → vira null → LIMPA o campo no banco.
+    // - Se o front NÃO mandar nada (undefined), mantemos o valor antigo.
+    let newDoc;
+    if (typeof cpfcnpj !== 'undefined' || typeof cpf !== 'undefined') {
+      const raw = (cpfcnpj ?? cpf ?? '').toString().trim();
+      newDoc = raw || null; // vazio => null
+    } else {
+      newDoc = u.cpfcnpj;
+    }
+
+    const newTelefone = telefone ?? u.telefone;
+
+    const result = await db.query(
+      `UPDATE usuarios
+       SET
+         nome      = $1,
+         email     = $2,
+         tipo      = $3,
+         ativo     = $4,
+         cpfcnpj   = $5,
+         telefone  = $6
+       WHERE id = $7
+       RETURNING id, nome, email, tipo, ativo, cpfcnpj AS "cpfcnpj", telefone`,
+      [newNome, newEmail, newTipo, newAtivo, newDoc, newTelefone, id]
+    );
+
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Erro em PATCH /usuarios/:id', err);
+    return res.status(500).json({ error: 'Erro ao atualizar usuário.' });
+  }
+});
+
+// Remove um usuário (se não estiver sendo referenciado por FK, etc.)
+app.delete('/usuarios/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await db.query('DELETE FROM usuarios WHERE id = $1', [id]);
+    return res.status(204).send();
+  } catch (err) {
+    console.error('Erro em DELETE /usuarios/:id:', err);
+    return res.status(500).json({ error: 'Erro ao excluir usuário.' });
+  }
+});
+
+// Quem sou eu (útil pro front validar sessão)
+app.get('/auth/me', authMiddleware, (req, res) => {
+  return res.json({ user: req.user });
+});
+
+
+// --------- Rotas de solicitações ----------
+
+// Listar solicitações (histórico opcional, não quebra a rota)
+app.get('/solicitacoes', authMiddleware, async (req, res) => {
+  try {
+    const { id, tipo } = req.user;
+
+    // 1) Busca básica das solicitações (como era antes)
+    let queryBase = `
+      SELECT
+        s.*,
+        u.nome    AS usuario_nome,
+        u.email   AS usuario_email,
+        u.cpfcnpj AS cpfcnpj,
+        (
+          SELECT COUNT(*)::int
+          FROM solicitacao_arquivos a
+          WHERE a.solicitacao_id = s.id
+        ) AS "docsExtrasCount"
+      FROM solicitacoes s
+      JOIN usuarios u ON u.id = s.usuario_id
+    `;
+
+    const params = [];
+
+    if (tipo === 'admin') {
+      queryBase += ' ORDER BY s.id DESC';
+    } else {
+      queryBase += ' WHERE s.usuario_id = $1 ORDER BY s.id DESC';
+      params.push(id);
+    }
+
+    const result = await db.query(queryBase, params);
+    const rows = result.rows;
+
+    // 2) Tenta buscar o histórico em uma segunda passada, mas sem derrubar nada
+    try {
+      for (const row of rows) {
+        const histRes = await db.query(
+          `
+          SELECT
+            status,
+            data       AS date,
+            origem,
+            obs
+          FROM solicitacao_status_history
+          WHERE solicitacao_id = $1
+          ORDER BY data
+        `,
+          [row.id]
+        );
+        row.status_history = histRes.rows; // agora vem do banco de verdade
+      }
+    } catch (e) {
+      console.error('Falha ao carregar histórico de status (usando fallback):', e);
+      // Se der erro aqui (tabela/coluna/etc), simplesmente não adiciona status_history
+      for (const row of rows) {
+        if (!row.status_history) {
+          row.status_history = [];
+        }
+      }
+    }
+
+    return res.json(rows);
+  } catch (err) {
+    console.error('Erro em GET /solicitacoes (nível principal):', err);
+    return res.status(500).json({ error: 'Erro ao listar solicitações.' });
+  }
+});
+
+
+// Criar nova solicitação (já grava o status inicial no histórico)
+app.post('/solicitacoes', authMiddleware, async (req, res) => {
+  try {
+    const { id: usuarioId } = req.user;
+    const {
+      solicitante_nome,
+      beneficiario_nome,
+      beneficiario_doc,
+      numero_nf,
+      data_nf,
+      valor_nf,
+      emitente_nome,
+      emitente_doc,
+      status,
+      protocolo,
+      nr_protocolo,
+      numero_protocolo,
+      valor,
+      valor_solicitado,
+      data_solicitacao,
+      data,
+      descricao, // 👈 AGORA LEMOS A DESCRIÇÃO
+    } = req.body;
+
+    const protocoloFinal =
+      protocolo || nr_protocolo || numero_protocolo || null;
+
+    // 🔹 Data da solicitação vinda do front
+    const dataSolicFinal = data_solicitacao || data || new Date();
+
+    const valorFinal =
+      (valor_solicitado ?? valor ?? valor_nf) ?? null;
+
+    const statusInicial = status || 'Em análise';
+
+    const insertResult = await db.query(
+      `INSERT INTO solicitacoes (
+        usuario_id,
+        solicitante_nome,
+        beneficiario_nome,
+        beneficiario_doc,
+        numero_nf,
+        data_nf,
+        valor_nf,
+        emitente_nome,
+        emitente_doc,
+        status,
+        protocolo,
+        data_solicitacao,
+        valor,
+        descricao
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      RETURNING *`,
+      [
+        usuarioId,
+        solicitante_nome || null,
+        beneficiario_nome || null,
+        beneficiario_doc || null,
+        numero_nf || null,
+        data_nf || null,
+        valor_nf || valorFinal || null,
+        emitente_nome || null,
+        emitente_doc || null,
+        statusInicial,
+        protocoloFinal,
+        dataSolicFinal,
+        valorFinal,
+        descricao || null,
+      ]
+    );
+
+    const created = insertResult.rows[0];
+
+    // Histórico inicial de status
+    try {
+      const dataHist =
+        dataSolicFinal || // data que veio da tela (Data da Solicitação)
+        created.data_solicitacao || // o que ficou salvo na tabela
+        new Date(); // fallback
+
+      await db.query(
+        `INSERT INTO solicitacao_status_history (
+          solicitacao_id,
+          status,
+          data,
+          origem,
+          obs
+        ) VALUES ($1,$2,$3,$4,$5)`,
+        [
+          created.id,
+          statusInicial,
+          dataHist,
+          'Criação',
+          'Status inicial da solicitação',
+        ]
+      );
+    } catch (errHist) {
+      console.error('🔥 ERRO AO INSERIR HISTÓRICO INICIAL:', errHist);
+    }
+
+    return res.status(201).json(created);
+  } catch (err) {
+    console.error('Erro em POST /solicitacoes:', err);
+    return res.status(500).json({ error: 'Erro ao criar solicitação.' });
+  }
+});
+
+// --------- Upload de arquivos vinculados à solicitação ----------
+
+// rota de upload
+app.post(
+  '/solicitacoes/:id/arquivos',
+  authMiddleware,
+  upload.single('file'),
+  async (req, res) => {
+    try {
+      const solicitacaoId = parseInt(req.params.id, 10);
+      const { tipo: tipoUsuario, id: usuarioId } = req.user;
+      const { tipo: tipoArquivo } = req.body;
+
+      if (!Number.isFinite(solicitacaoId)) {
+        return res.status(400).json({ error: 'Solicitação inválida.' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'Arquivo é obrigatório.' });
+      }
+
+      // valida solicitação
+      let query = 'SELECT * FROM solicitacoes WHERE id = $1';
+      const params = [solicitacaoId];
+
+      if (tipoUsuario !== 'admin') {
+        query += ' AND usuario_id = $2';
+        params.push(usuarioId);
+      }
+
+      const existing = await db.query(query, params);
+      if (existing.rows.length === 0) {
+        return res.status(404).json({
+          error: 'Solicitação não encontrada para este usuário.',
+        });
+      }
+
+      // salva no banco
+      const insert = await db.query(
+        `INSERT INTO solicitacao_arquivos
+           (solicitacao_id, tipo, original_name, mime_type, path)
+         VALUES ($1,$2,$3,$4,$5)
+         RETURNING
+           id, solicitacao_id, tipo, original_name, mime_type, path, created_at`,
+        [
+          solicitacaoId,
+          tipoArquivo || 'OUTRO',
+          req.file.originalname,
+          req.file.mimetype,
+          req.file.filename,
+        ]
+      );
+
+      return res.status(201).json(insert.rows[0]);
+    } catch (err) {
+      console.error('Erro em POST /solicitacoes/:id/arquivos:', err);
+      return res
+        .status(500)
+        .json({ error: 'Erro ao anexar arquivo à solicitação.' });
+    }
+  }
+);
+
+// rota serve arquivos estáticos
+app.use('/uploads', express.static(uploadDir));
+
+// Atualizar solicitação (e registrar cada troca de status no histórico)
+app.put('/solicitacoes/:id', async (req, res) => {
+  const solId = Number(req.params.id);
+  if (!Number.isFinite(solId)) {
+    return res.status(400).json({ error: 'ID inválido.' });
+  }
+
+  try {
+    // 1) Buscar registro atual
+    const existingResult = await db.query(
+      'SELECT * FROM solicitacoes WHERE id = $1',
+      [solId]
+    );
+
+    if (!existingResult.rows.length) {
+      return res.status(404).json({ error: 'Solicitação não encontrada.' });
+    }
+
+    const existing = existingResult.rows[0];
+
+    // 2) Campos vindos do front
+    const {
+      status,
+      protocolo,
+      nr_protocolo,
+      numero_protocolo,
+      data_solicitacao,
+      data,
+      valor,
+      valor_solicitado,
+      statusDate,
+      descricao,
+      obs,
+      dataPagamento,
+      valorReembolso,
+    } = req.body;
+
+    // conversor seguro de valores
+    const toNum = (x) => {
+      if (typeof x === 'number') return Number.isFinite(x) ? x : null;
+      if (typeof x === 'string' && x.trim()) {
+        const n = Number(x.replace(/\./g, '').replace(',', '.'));
+        return Number.isFinite(n) ? n : null;
+      }
+      return null;
+    };
+
+    // 3) Composições finais
+    const prevStatus = existing.status;
+    const statusFinal = status ?? prevStatus;
+
+    const protocoloFinal =
+      protocolo || nr_protocolo || numero_protocolo || existing.protocolo || null;
+
+    const dataSolicFinal =
+      data_solicitacao || data || existing.data_solicitacao || null;
+
+    let valorFinal = toNum(valor);
+    if (valorFinal == null) valorFinal = toNum(valor_solicitado);
+    if (valorFinal == null) valorFinal = existing.valor;
+
+    const descricaoFinal = descricao ?? existing.descricao ?? null;
+
+    const dataPagamentoFinal = Object.prototype.hasOwnProperty.call(
+      req.body,
+      'dataPagamento'
+    )
+      ? dataPagamento
+      : existing.data_pagamento;
+
+    const valorReembolsoFinal =
+      toNum(valorReembolso) ?? existing.valor_reembolso ?? null;
+
+    // 4) Update principal (AGORA com pagamento)
+    const updateResult = await db.query(
+      `
+      UPDATE solicitacoes
+         SET status           = $1,
+             protocolo        = $2,
+             data_solicitacao = $3,
+             valor            = $4,
+             descricao        = $5,
+             data_pagamento   = $6,
+             valor_reembolso  = $7
+       WHERE id = $8
+       RETURNING *
+      `,
+      [
+        statusFinal,
+        protocoloFinal,
+        dataSolicFinal,
+        valorFinal,
+        descricaoFinal,
+        dataPagamentoFinal,
+        valorReembolsoFinal,
+        solId,
+      ]
+    );
+
+    const updated = updateResult.rows[0];
+
+    // ===== HISTÓRICO =====
+    const mudouStatus = statusFinal !== prevStatus;
+
+    let movDate =
+      statusDate || // data digitada (Kanban / modal)
+      data_solicitacao || // se vier da tela
+      new Date().toISOString().slice(0, 10); // fallback: hoje
+
+    if (mudouStatus || statusDate) {
+      await db.query(
+        `
+        INSERT INTO solicitacao_status_history
+          (solicitacao_id, status, data, origem, obs)
+        VALUES ($1, $2, $3, $4, $5)
+        `,
+        [solId, statusFinal, movDate, 'API', obs || null]
+      );
+    }
+
+    return res.json(updated);
+  } catch (err) {
+    console.error('Erro em PUT /solicitacoes/:id', err);
+    return res.status(500).json({ error: 'Erro ao atualizar solicitação.' });
+  }
+});
+
+// Excluir solicitação + anexos vinculados
+app.delete('/solicitacoes/:id', authMiddleware, async (req, res) => {
+  try {
+    const solId = parseInt(req.params.id, 10);
+
+    if (Number.isNaN(solId)) {
+      return res.status(400).json({ error: 'ID inválido.' });
+    }
+
+    const { id: usuarioId, tipo } = req.user;
+
+    // 1) Buscar anexos antes de excluir a solicitação
+    const anexosResult = await db.query(
+      'SELECT path FROM solicitacao_arquivos WHERE solicitacao_id = $1',
+      [solId]
+    );
+    const filePaths = anexosResult.rows
+      .map((r) => r.path)
+      .filter((p) => !!p);
+
+    // 2) Excluir a solicitação (respeitando admin / user)
+    let result;
+    if (tipo === 'admin') {
+      // admin pode excluir qualquer solicitação
+      result = await db.query(
+        'DELETE FROM solicitacoes WHERE id = $1 RETURNING id',
+        [solId]
+      );
+    } else {
+      // usuário comum só exclui o que é dele
+      result = await db.query(
+        'DELETE FROM solicitacoes WHERE id = $1 AND usuario_id = $2 RETURNING id',
+        [solId, usuarioId]
+      );
+    }
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Solicitação não encontrada.' });
+    }
+
+    // 3) Apagar arquivos físicos vinculados
+    // (as linhas em solicitacao_arquivos podem estar com ON DELETE CASCADE)
+    for (const relPath of filePaths) {
+      try {
+        const fullPath = path.join(uploadDir, relPath);
+        fs.unlink(fullPath, (err) => {
+          if (err && err.code !== 'ENOENT') {
+            console.error(
+              'Erro ao remover arquivo de anexo:',
+              fullPath,
+              err
+            );
+          }
+        });
+      } catch (e) {
+        console.error('Erro ao montar/remover caminho de anexo:', e);
+      }
+    }
+
+    return res.status(204).send();
+  } catch (err) {
+    console.error('Erro em DELETE /solicitacoes/:id:', err);
+    return res
+      .status(500)
+      .json({ error: 'Erro ao excluir solicitação.' });
+  }
+});
+
+// Listar anexos (NF, comprovantes, extras) de uma solicitação
+app.get('/solicitacoes/:id/arquivos', authMiddleware, async (req, res) => {
+  try {
+    const solId = parseInt(req.params.id, 10);
+    if (Number.isNaN(solId)) {
+      return res.status(400).json({ error: 'ID inválido.' });
+    }
+
+    const { id: usuarioId, tipo } = req.user;
+
+    let query = `
+      SELECT
+        a.id,
+        a.tipo,
+        a.original_name,
+        a.mime_type,
+        a.path,
+        a.created_at
+      FROM solicitacao_arquivos a
+      JOIN solicitacoes s ON s.id = a.solicitacao_id
+      WHERE a.solicitacao_id = $1
+    `;
+    const params = [solId];
+
+    if (tipo !== 'admin') {
+      query += ' AND s.usuario_id = $2';
+      params.push(usuarioId);
+    }
+
+    const result = await db.query(query, params);
+
+    // devolve também a URL pra download
+    const base =
+      process.env.PUBLIC_API_BASE ||
+      ''; // opcional, se quiser; se não, usamos relativo
+    const rows = result.rows.map((r) => ({
+      ...r,
+      url: `${base}/uploads/${r.path}`,
+    }));
+
+    return res.json(rows);
+  } catch (err) {
+    console.error('Erro em GET /solicitacoes/:id/arquivos:', err);
+    return res
+      .status(500)
+      .json({ error: 'Erro ao listar anexos da solicitação.' });
+  }
+});
+
+
+// ===================== DESCRICOES ======================
+app.get('/descricoes', authMiddleware, async (req, res) => {
+  try {
+    const r = await db.query(
+      `SELECT id, descricao, ativo
+       FROM descricoes
+       ORDER BY id ASC`
+    );
+    res.json(r.rows);
+  } catch (err) {
+    console.error('Erro GET /descricoes:', err);
+    res.status(500).json({ error: 'Erro ao listar descrições.' });
+  }
+});
+
+app.post('/descricoes', authMiddleware, async (req, res) => {
+  try {
+    const { descricao, ativo } = req.body;
+
+    const r = await db.query(
+      `INSERT INTO descricoes (descricao, ativo)
+       VALUES ($1,$2)
+       RETURNING id, descricao, ativo`,
+      [descricao, ativo ?? true]
+    );
+
+    res.status(201).json(r.rows[0]);
+  } catch (err) {
+    console.error('Erro POST /descricoes:', err);
+    res.status(500).json({ error: 'Erro ao criar descrição.' });
+  }
+});
+
+app.patch('/descricoes/:id', authMiddleware, async (req, res) => {
+  try {
+    const { descricao, ativo } = req.body;
+    const id = req.params.id;
+
+    const r = await db.query(
+      `UPDATE descricoes
+       SET descricao = COALESCE($1, descricao),
+           ativo = COALESCE($2, ativo)
+       WHERE id = $3
+       RETURNING id, descricao, ativo`,
+      [descricao, ativo, id]
+    );
+
+    res.json(r.rows[0]);
+  } catch (err) {
+    console.error('Erro PATCH /descricoes/:id:', err);
+    res.status(500).json({ error: 'Erro ao atualizar descrição.' });
+  }
+});
+
+app.delete('/descricoes/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    await db.query(`DELETE FROM descricoes WHERE id = $1`, [id]);
+
+    res.status(204).send();
+  } catch (err) {
+    console.error('Erro DELETE /descricoes/:id:', err);
+    res.status(500).json({ error: 'Erro ao excluir descrição.' });
+  }
+});
+
+// ===================== STATUS ======================
+app.get('/status', authMiddleware, async (req, res) => {
+  try {
+    const r = await db.query(
+      `SELECT id, nome AS descricao, ativo
+       FROM status
+       ORDER BY id ASC`
+    );
+    res.json(r.rows);
+  } catch (err) {
+    console.error('Erro GET /status:', err);
+    res.status(500).json({ error: 'Erro ao listar status.' });
+  }
+});
+
+app.post('/status', authMiddleware, async (req, res) => {
+  try {
+    const { nome, descricao, ativo } = req.body;
+
+    const r = await db.query(
+      `INSERT INTO status (nome, ativo)
+       VALUES ($1,$2)
+       RETURNING id, nome AS descricao, ativo`,
+      [descricao || nome, ativo ?? true]
+    );
+
+    res.status(201).json(r.rows[0]);
+  } catch (err) {
+    console.error('Erro POST /status:', err);
+    res.status(500).json({ error: 'Erro ao criar status.' });
+  }
+});
+
+app.patch('/status/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { descricao, ativo } = req.body;
+
+    const r = await db.query(
+      `UPDATE status
+       SET nome = COALESCE($1, nome),
+           ativo = COALESCE($2, ativo)
+       WHERE id = $3
+       RETURNING id, nome AS descricao, ativo`,
+      [descricao, ativo, id]
+    );
+
+    res.json(r.rows[0]);
+  } catch (err) {
+    console.error('Erro PATCH /status/:id:', err);
+    res.status(500).json({ error: 'Erro ao atualizar status.' });
+  }
+});
+
+app.delete('/status/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    await db.query(`DELETE FROM status WHERE id = $1`, [id]);
+
+    res.status(204).send();
+  } catch (err) {
+    console.error('Erro DELETE /status/:id:', err);
+    res.status(500).json({ error: 'Erro ao excluir status.' });
+  }
+});
+
+// Limpar TODOS os anexos da nuvem (admin only)
+// Use APENAS na virada para produção
+app.delete('/anexos', authMiddleware, async (req, res) => {
+  try {
+    const { tipo } = req.user;
+    if (tipo !== 'admin') {
+      return res
+        .status(403)
+        .json({ error: 'Apenas administradores podem limpar anexos.' });
+    }
+
+    const result = await db.query(
+      'SELECT path FROM solicitacao_arquivos'
+    );
+    const files = result.rows.map((r) => r.path).filter(Boolean);
+
+    // apaga registros
+    await db.query('DELETE FROM solicitacao_arquivos');
+
+    // tenta apagar arquivos físicos
+    for (const relPath of files) {
+      try {
+        const fullPath = path.join(uploadDir, relPath);
+        fs.unlink(fullPath, (err) => {
+          if (err && err.code !== 'ENOENT') {
+            console.error(
+              'Erro ao remover arquivo em limpeza geral:',
+              fullPath,
+              err
+            );
+          }
+        });
+      } catch (e) {
+        console.error(
+          'Erro ao montar/remover caminho em limpeza geral:',
+          e
+        );
+      }
+    }
+
+    return res.status(204).send();
+  } catch (err) {
+    console.error('Erro em DELETE /anexos:', err);
+    return res
+      .status(500)
+      .json({ error: 'Erro ao limpar anexos da nuvem.' });
+  }
+});
+
+
+// --------- Healthcheck ----------
+app.get('/', (req, res) => {
+  res.send('API Reembolso rodando.');
+});
+
+// --------- Start ----------
+app.listen(PORT, () => {
+  console.log(`API rodando na porta ${PORT}`);
+});
