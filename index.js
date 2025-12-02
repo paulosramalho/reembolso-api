@@ -727,8 +727,12 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
 // Criar nova solicitação (já grava o status inicial no histórico)
 app.post('/solicitacoes', authMiddleware, async (req, res) => {
   try {
-    const { id: usuarioId } = req.user;
+    // usuário logado (para fallback / auditoria)
+    const { id: usuarioLogadoId } = req.user;
+
     const {
+      usuario_id,       // 👈 id do solicitante vindo do front (Nova.jsx)
+      solicitante_id,   // 👈 se em algum momento vier com outro nome
       solicitante_nome,
       beneficiario_nome,
       beneficiario_doc,
@@ -745,13 +749,27 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
       valor_solicitado,
       data_solicitacao,
       data,
-      descricao, // 👈 AGORA LEMOS A DESCRIÇÃO
+      descricao   // 👈 descrição da despesa
     } = req.body;
+
+    // --- Definição do DONO da solicitação (sempre o selecionado) ---
+    const tryParseId = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
+
+    // prioridade: usuario_id > solicitante_id > id do usuário logado
+    const usuarioDonoId =
+      tryParseId(usuario_id) ??
+      tryParseId(solicitante_id) ??
+      usuarioLogadoId;
+
+    // --- Demais campos, como já estavam ---
 
     const protocoloFinal =
       protocolo || nr_protocolo || numero_protocolo || null;
 
-    // 🔹 Data da solicitação vinda do front
+    // Data da solicitação vinda do front
     const dataSolicFinal = data_solicitacao || data || new Date();
 
     const valorFinal =
@@ -779,31 +797,30 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       RETURNING *`,
       [
-        usuarioId,
+        usuarioDonoId,                      // 👈 AGORA É SEMPRE O SELECIONADO
         solicitante_nome || null,
         beneficiario_nome || null,
         beneficiario_doc || null,
         numero_nf || null,
         data_nf || null,
-        valor_nf || valorFinal || null,
+        valor_nf || null,
         emitente_nome || null,
         emitente_doc || null,
         statusInicial,
         protocoloFinal,
         dataSolicFinal,
         valorFinal,
-        descricao || null,
+        descricao || null
       ]
     );
 
     const created = insertResult.rows[0];
 
-    // Histórico inicial de status
+    // Histórico inicial do status (mantido igual)
     try {
       const dataHist =
-        dataSolicFinal || // data que veio da tela (Data da Solicitação)
-        created.data_solicitacao || // o que ficou salvo na tabela
-        new Date(); // fallback
+        data_solicitacao ||
+        new Date();
 
       await db.query(
         `INSERT INTO solicitacao_status_history (
@@ -818,7 +835,7 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
           statusInicial,
           dataHist,
           'Criação',
-          'Status inicial da solicitação',
+          'Status inicial da solicitação'
         ]
       );
     } catch (errHist) {
