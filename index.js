@@ -382,6 +382,57 @@ app.post('/auth/reset-senha', async (req, res) => {
   }
 });
 
+// ⚠️ ROTA SOMENTE PARA DESENVOLVIMENTO
+// Obtém o link de redefinição com base no e-mail
+app.get('/auth/reset-link-dev', async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Informe o e-mail na query string ?email=' });
+    }
+
+    const result = await db.query(
+      `SELECT id, email, reset_token, reset_token_expires
+       FROM usuarios
+       WHERE email = $1
+       LIMIT 1`,
+      [email.trim()]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    const user = result.rows[0];
+
+    if (!user.reset_token) {
+      return res.status(400).json({
+        error: 'Usuário não possui reset_token. Inicie o fluxo de "Esqueci minha senha" primeiro.',
+      });
+    }
+
+    if (
+      !user.reset_token_expires ||
+      new Date(user.reset_token_expires).getTime() < Date.now()
+    ) {
+      return res.status(400).json({
+        error: 'Token expirado. Refaça o fluxo de "Esqueci minha senha".',
+      });
+    }
+
+    const appBase = (process.env.APP_BASE_URL || 'http://localhost:5173').replace(/\/+$/, '');
+    const resetLink = `${appBase}/login?resetToken=${encodeURIComponent(
+      user.reset_token
+    )}&email=${encodeURIComponent(user.email)}`;
+
+    return res.json({ resetLink });
+  } catch (err) {
+    console.error('Erro em GET /auth/reset-link-dev:', err);
+    return res.status(500).json({ error: 'Erro ao recuperar link de redefinição.' });
+  }
+});
+
 // --------- Usuários (Configurações) ----------
 
 // Lista todos os usuários para a tela de Configurações
