@@ -655,12 +655,12 @@ app.get('/auth/me', authMiddleware, (req, res) => {
 
 // --------- Rotas de solicitações ----------
 
-// Listar solicitações (histórico opcional, não quebra a rota)
+// Listar solicitações
 app.get('/solicitacoes', authMiddleware, async (req, res) => {
   try {
     const { id, tipo } = req.user;
+    let params = [];
 
-    // 1) Busca básica das solicitações (como era antes)
     let queryBase = `
       SELECT
         s.*,
@@ -676,49 +676,40 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
       JOIN usuarios u ON u.id = s.usuario_id
     `;
 
-    const params = [];
-
     if (tipo === 'admin') {
-      queryBase += ' ORDER BY s.id DESC';
-    } else {
-      queryBase += ' WHERE s.usuario_id = $1 ORDER BY s.id DESC';
-      params.push(id);
-    }
+  // admin enxerga todas as solicitações
+  queryBase += ` ORDER BY s.id DESC`;
+} else {
+  // usuário comum enxerga apenas as solicitações onde ele é o "dono"
+  queryBase += `
+    WHERE s.usuario_id = $1
+    ORDER BY s.id DESC
+  `;
+  params.push(id);
+}
 
     const result = await db.query(queryBase, params);
     const rows = result.rows;
 
-    // 2) Tenta buscar o histórico em uma segunda passada, mas sem derrubar nada
+    // Histórico (mantido igual)
     try {
       for (const row of rows) {
         const histRes = await db.query(
-          `
-          SELECT
-            status,
-            data       AS date,
-            origem,
-            obs
-          FROM solicitacao_status_history
-          WHERE solicitacao_id = $1
-          ORDER BY data
-        `,
+          `SELECT status, data AS date, origem, obs
+           FROM solicitacao_status_history
+           WHERE solicitacao_id = $1
+           ORDER BY data`,
           [row.id]
         );
-        row.status_history = histRes.rows; // agora vem do banco de verdade
+        row.status_history = histRes.rows;
       }
-    } catch (e) {
-      console.error('Falha ao carregar histórico de status (usando fallback):', e);
-      // Se der erro aqui (tabela/coluna/etc), simplesmente não adiciona status_history
-      for (const row of rows) {
-        if (!row.status_history) {
-          row.status_history = [];
-        }
-      }
+    } catch (err) {
+      for (const row of rows) row.status_history = [];
     }
 
     return res.json(rows);
   } catch (err) {
-    console.error('Erro em GET /solicitacoes (nível principal):', err);
+    console.error('Erro em GET /solicitacoes:', err);
     return res.status(500).json({ error: 'Erro ao listar solicitações.' });
   }
 });
