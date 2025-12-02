@@ -659,7 +659,11 @@ app.get('/auth/me', authMiddleware, (req, res) => {
 app.get('/solicitacoes', authMiddleware, async (req, res) => {
   try {
     const { id, tipo } = req.user;
-    let params = [];
+    const params = [];
+
+    // 🔹 Normaliza o tipo em minúsculas
+    const tipoNorm = String(tipo || '').toLowerCase();
+    const isAdmin = tipoNorm === 'admin' || tipoNorm === 'adm';
 
     let queryBase = `
       SELECT
@@ -676,17 +680,17 @@ app.get('/solicitacoes', authMiddleware, async (req, res) => {
       JOIN usuarios u ON u.id = s.usuario_id
     `;
 
-    if (tipo === 'admin') {
-  // admin enxerga todas as solicitações
-  queryBase += ` ORDER BY s.id DESC`;
-} else {
-  // usuário comum enxerga apenas as solicitações onde ele é o "dono"
-  queryBase += `
-    WHERE s.usuario_id = $1
-    ORDER BY s.id DESC
-  `;
-  params.push(id);
-}
+    if (isAdmin) {
+      // 🔓 Admin enxerga TUDO
+      queryBase += ` ORDER BY s.id DESC`;
+    } else {
+      // 👤 Usuário comum enxerga apenas o que é dele
+      queryBase += `
+        WHERE s.usuario_id = $1
+        ORDER BY s.id DESC
+      `;
+      params.push(id);
+    }
 
     const result = await db.query(queryBase, params);
     const rows = result.rows;
