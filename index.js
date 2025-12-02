@@ -249,13 +249,14 @@ app.post('/auth/esqueci-senha', async (req, res) => {
     };
 
     if (result.rows.length === 0) {
+      // não diz se existe ou não
       return res.json(genericResponse);
     }
 
     const user = result.rows[0];
 
     if (!user.ativo) {
-      // Mesmo comportamento: não revela status
+      // também não revela que está inativo
       return res.json(genericResponse);
     }
 
@@ -276,7 +277,7 @@ app.post('/auth/esqueci-senha', async (req, res) => {
       resetToken
     )}&email=${encodeURIComponent(user.email)}`;
 
-    // Envia e-mail se SMTP configurado
+    // Envia e-mail se SMTP configurado, senão loga no console (dev)
     if (mailTransporter) {
       try {
         await mailTransporter.sendMail({
@@ -299,11 +300,13 @@ app.post('/auth/esqueci-senha', async (req, res) => {
         });
       } catch (mailErr) {
         console.error('Erro ao enviar e-mail de redefinição:', mailErr);
-        // Não expõe erro de SMTP pro usuário final
+        // mesmo se o e-mail falhar, não expomos pro usuário
       }
     } else {
-      console.log('*** Link de redefinição de senha ***');
+      // 👉 ESTE BLOCO GARANTE O LOG NO CONSOLE EM DEV
+      console.log('\n*** Link de redefinição de senha ***');
       console.log(resetLink);
+      console.log('************************************\n');
     }
 
     return res.json(genericResponse);
@@ -314,6 +317,7 @@ app.post('/auth/esqueci-senha', async (req, res) => {
       .json({ error: 'Erro ao iniciar fluxo de redefinição de senha.' });
   }
 });
+
 
 // Aplica nova senha a partir de um token de redefinição
 // Espera: { token, novaSenha }
