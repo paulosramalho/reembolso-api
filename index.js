@@ -1326,6 +1326,88 @@ app.delete('/anexos', authMiddleware, async (req, res) => {
   }
 });
 
+// --------- Estrutura dinâmica do banco (TXT) ----------
+app.get('/maintenance/schema-txt', authMiddleware, async (req, res) => {
+  try {
+    const tipo = String(req.user?.tipo || '').toLowerCase();
+    if (tipo !== 'admin') {
+      return res
+        .status(403)
+        .json({ error: 'Apenas administradores podem gerar a estrutura do banco.' });
+    }
+
+    const result = await db.query(
+      `
+      SELECT
+        table_name,
+        column_name,
+        data_type,
+        is_nullable,
+        column_default,
+        character_maximum_length,
+        ordinal_position
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name NOT LIKE 'pg_%'
+        AND table_name NOT LIKE 'sql_%'
+      ORDER BY table_name, ordinal_position
+      `
+    );
+
+    const rows = result.rows || [];
+    const lines = [];
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const headerDate = `${pad(now.getDate())}/${pad(
+      now.getMonth() + 1
+    )}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    lines.push('Controle de Reembolso – Estrutura de Banco de Dados (gerado automaticamente)');
+    lines.push(`Gerado em: ${headerDate}`);
+    lines.push('');
+
+    if (!rows.length) {
+      lines.push('Nenhuma coluna encontrada no schema public.');
+    } else {
+      let currentTable = null;
+
+      for (const col of rows) {
+        if (col.table_name !== currentTable) {
+          currentTable = col.table_name;
+          lines.push('');
+          lines.push(`TABELA ${currentTable}`);
+        }
+
+        const nullable = col.is_nullable === 'YES' ? 'NULL' : 'NOT NULL';
+
+        let type = col.data_type;
+        if (col.character_maximum_length) {
+          type += `(${col.character_maximum_length})`;
+        }
+
+        let def = '';
+        if (col.column_default) {
+          def = ` DEFAULT ${col.column_default}`;
+        }
+
+        lines.push(`- ${col.column_name} ${type} ${nullable}${def}`.trim());
+      }
+
+      lines.push('');
+      lines.push(
+        'Obs.: Estrutura gerada automaticamente a partir de information_schema.columns (schema public).'
+      );
+    }
+
+    const text = lines.join('\n');
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    return res.send(text);
+  } catch (err) {
+    console.error('Erro em GET /maintenance/schema-txt:', err);
+    return res.status(500).json({ error: 'Erro ao gerar estrutura do banco.' });
+  }
+});
 
 // --------- Healthcheck ----------
 app.get('/', (req, res) => {
