@@ -333,6 +333,20 @@ app.get("/usuarios/:id", async (req, res) => {
   }
 });
 
+// Listar todos os usuários (para tela de Configurações)
+app.get("/usuarios", async (req, res) => {
+  try {
+    const usuarios = await prisma.usuario.findMany({
+      orderBy: { nome: "asc" },
+    });
+
+    res.json(usuarios);
+  } catch (err) {
+    console.error("Erro em GET /usuarios:", err);
+    res.status(500).json({ erro: "Erro ao listar usuários." });
+  }
+});
+
 // Listar solicitações do usuário
 app.get("/solicitacoes/usuario/:id", async (req, res) => {
   try {
