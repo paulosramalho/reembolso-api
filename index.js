@@ -1,8 +1,5 @@
-// index.js — API Reembolso COMPLETA e ATUALIZADA
-// Versão: 04/12/2025 — Totalmente reestruturada, com rotas novas (Dashboard,
-// Kanban, Histórico Geral, Relatórios IRPF, Estrutura Banco, Listagem Geral, 
-// Atualização Status com Histórico Automático), mantendo compatibilidade total
-// com a sua versão original.
+// index.js — API Reembolso COMPLETA e ATUALIZADA 03/12/25 - 15:21h
+// Compatível com o schema/prisma atual e com o front (forma da resposta do login).
 
 // =========================
 // 🔰 IMPORTAÇÕES & SETUP
@@ -76,10 +73,11 @@ function authMiddleware(req, res, next) {
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    // payload: { id, tipo, iat, exp }
+    const tipo = String(payload.tipo || "").toLowerCase();
+
     req.user = {
       id: payload.id,
-      tipo: payload.tipo,
+      tipo,
     };
     next();
   } catch (err) {
@@ -144,6 +142,8 @@ app.post("/auth/login", async (req, res) => {
     if (!identificador || !senha) {
       return res.status(400).json({
         ok: false,
+        success: false,
+        status: "error",
         mensagem: "Usuário e senha são obrigatórios.",
       });
     }
@@ -157,26 +157,28 @@ app.post("/auth/login", async (req, res) => {
     if (!usuario) {
       return res
         .status(400)
-        .json({ ok: false, mensagem: "Usuário não encontrado." });
+        .json({ ok: false, success: false, status: "error", mensagem: "Usuário não encontrado." });
     }
 
     const senhaOk = await bcrypt.compare(senha, usuario.senha_hash);
     if (!senhaOk) {
       return res
         .status(400)
-        .json({ ok: false, mensagem: "Usuário ou senha inválidos." });
+        .json({ ok: false, success: false, status: "error", mensagem: "Usuário ou senha inválidos." });
     }
 
     if (!JWT_SECRET) {
       console.error("JWT_SECRET não definido");
       return res.status(500).json({
         ok: false,
+        success: false,
+        status: "error",
         mensagem: "Erro de configuração do servidor.",
       });
     }
 
     const token = jwt.sign(
-      { id: usuario.id, tipo: usuario.tipo },
+      { id: usuario.id, tipo: (usuario.tipo || "").toLowerCase() },
       JWT_SECRET,
       { expiresIn: "8h" }
     );
@@ -187,21 +189,28 @@ app.post("/auth/login", async (req, res) => {
       email: usuario.email,
       cpfcnpj: usuario.cpfcnpj,
       telefone: usuario.telefone,
-      tipo: usuario.tipo,
+      tipo: usuario.tipo, // mantém como está no banco pra UI
     };
 
     res.json({
       ok: true,
+      success: true,
+      status: "ok",
       message: "Login realizado com sucesso.",
       token,
       usuario: userPayload,
-      data: { token, usuario: userPayload },
+      user: userPayload,
+      data: {
+        token,
+        usuario: userPayload,
+        user: userPayload,
+      },
     });
   } catch (err) {
     console.error("Erro em /auth/login:", err);
     res
       .status(500)
-      .json({ ok: false, mensagem: "Erro interno ao tentar fazer login." });
+      .json({ ok: false, success: false, status: "error", mensagem: "Erro interno ao tentar fazer login." });
   }
 });
 
@@ -492,9 +501,7 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
     const dados = req.body;
     const usuarioIdSolicitante = Number(dados.usuario_id);
 
-    // IMPORTANTE:
     // usuario_id = solicitante REAL.
-    // Se não for admin, só pode criar para si mesmo.
     if (req.user.tipo !== "admin" && req.user.id !== usuarioIdSolicitante) {
       return res.status(403).json({
         erro: "Usuário não autorizado a criar solicitação para outro solicitante.",
@@ -578,7 +585,6 @@ app.post(
           .json({ erro: "Solicitação não encontrada." });
       }
 
-      // Se não for admin, só pode anexar na própria solicitação
       if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
         return res.status(403).json({
           erro: "Usuário não autorizado a anexar arquivos nesta solicitação.",
@@ -618,7 +624,6 @@ app.get("/solicitacoes/:id/arquivos", authMiddleware, async (req, res) => {
       return res.status(404).json({ erro: "Solicitação não encontrada." });
     }
 
-    // Se não for admin, só pode ver seus próprios arquivos
     if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
       return res.status(403).json({
         erro: "Usuário não autorizado a visualizar arquivos desta solicitação.",
@@ -660,7 +665,6 @@ app.get("/arquivos/:id/download", authMiddleware, async (req, res) => {
       return res.status(404).json({ erro: "Solicitação não encontrada." });
     }
 
-    // Se não for admin, só pode baixar arquivo das próprias solicitações
     if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
       return res.status(403).json({
         erro: "Usuário não autorizado a baixar este arquivo.",
@@ -770,7 +774,6 @@ app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) 
     const { id } = req.params;
     const { status, origem, obs } = req.body;
 
-    // Validar status existente na tabela "status"
     const statusList = await prisma.status.findMany({
       where: { ativo: true },
     });
@@ -783,7 +786,6 @@ app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) 
       });
     }
 
-    // Atualiza solicitação
     const atualizado = await prisma.solicitacao.update({
       where: { id: Number(id) },
       data: {
@@ -792,7 +794,6 @@ app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) 
       },
     });
 
-    // Registra histórico
     await prisma.solicitacao_status_history.create({
       data: {
         solicitacao_id: Number(id),
@@ -887,10 +888,6 @@ app.get("/historico", authMiddleware, adminOnly, async (req, res) => {
   try {
     const lista = await prisma.solicitacao_status_history.findMany({
       orderBy: { data: "desc" },
-      // se a model não tiver relação "solicitacao", remova o include abaixo:
-      // include: {
-      //   solicitacao: true,
-      // },
     });
 
     res.json(lista);
