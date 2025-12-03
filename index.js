@@ -124,7 +124,7 @@ app.post("/auth/login", async (req, res) => {
         .json({ erro: "Erro de configuração do servidor." });
     }
 
-    const token = jwt.sign(
+        const token = jwt.sign(
       { id: usuario.id, tipo: usuario.tipo },
       JWT_SECRET,
       { expiresIn: "8h" }
@@ -141,17 +141,17 @@ app.post("/auth/login", async (req, res) => {
 
     res.json({
       success: true,
+      status: "ok",
+      message: "Login realizado com sucesso.",
       token,
-      user: userPayload,
       usuario: userPayload,
+      user: userPayload,
+      data: {
+        token,
+        usuario: userPayload,
+        user: userPayload,
+      },
     });
-  } catch (err) {
-    console.error("Erro em /auth/login:", err);
-    res
-      .status(500)
-      .json({ erro: "Erro interno ao tentar fazer login." });
-  }
-});
 
 // ───────────── RESET DE SENHA ─────────────
 
