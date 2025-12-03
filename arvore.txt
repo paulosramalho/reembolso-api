@@ -1,0 +1,2620 @@
+ O volume na unidade C ‚ Windows-SSD
+ O N£mero de S‚rie do Volume ‚ E2F5-F2FD
+
+ Pasta de c:\ControleDeReembolso\api
+
+23/11/2025  19:32    <DIR>          .
+21/11/2025  17:47    <DIR>          ..
+21/11/2025  22:14               196 .env
+21/11/2025  22:36                62 .gitignore
+23/11/2025  19:34                 0 arvore.txt
+21/11/2025  17:53               276 db.js
+23/11/2025  12:16            18.027 index.js
+21/11/2025  17:48    <DIR>          node_modules
+21/11/2025  17:48            41.319 package-lock.json
+21/11/2025  17:50               384 package.json
+               7 arquivo(s)         60.264 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git
+
+23/11/2025  19:32    <DIR>          ..
+22/11/2025  17:30            12.288 .COMMIT_EDITMSG.swp
+23/11/2025  12:17                25 COMMIT_EDITMSG
+21/11/2025  22:44               309 config
+21/11/2025  22:34                73 description
+21/11/2025  22:41                21 HEAD
+21/11/2025  22:34    <DIR>          hooks
+23/11/2025  12:17               449 index
+21/11/2025  22:34    <DIR>          info
+21/11/2025  22:37    <DIR>          logs
+23/11/2025  12:17    <DIR>          objects
+21/11/2025  22:44    <DIR>          refs
+               6 arquivo(s)         13.165 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\hooks
+
+21/11/2025  22:34    <DIR>          .
+21/11/2025  22:34               478 applypatch-msg.sample
+21/11/2025  22:34               896 commit-msg.sample
+21/11/2025  22:34             4.726 fsmonitor-watchman.sample
+21/11/2025  22:34               189 post-update.sample
+21/11/2025  22:34               424 pre-applypatch.sample
+21/11/2025  22:34             1.649 pre-commit.sample
+21/11/2025  22:34               416 pre-merge-commit.sample
+21/11/2025  22:34             1.374 pre-push.sample
+21/11/2025  22:34             4.898 pre-rebase.sample
+21/11/2025  22:34               544 pre-receive.sample
+21/11/2025  22:34             1.492 prepare-commit-msg.sample
+21/11/2025  22:34             2.783 push-to-checkout.sample
+21/11/2025  22:34             2.308 sendemail-validate.sample
+21/11/2025  22:34             3.650 update.sample
+              14 arquivo(s)         25.827 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\info
+
+21/11/2025  22:34    <DIR>          .
+21/11/2025  22:34               240 exclude
+               1 arquivo(s)            240 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\logs
+
+21/11/2025  22:37    <DIR>          .
+23/11/2025  12:17             2.124 HEAD
+21/11/2025  22:44    <DIR>          refs
+               1 arquivo(s)          2.124 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\logs\refs
+
+21/11/2025  22:44    <DIR>          .
+21/11/2025  22:37    <DIR>          ..
+21/11/2025  22:41    <DIR>          heads
+21/11/2025  22:44    <DIR>          remotes
+               0 arquivo(s)              0 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\logs\refs\heads
+
+21/11/2025  22:41    <DIR>          .
+21/11/2025  22:44    <DIR>          ..
+23/11/2025  12:17             1.728 main
+               1 arquivo(s)          1.728 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\logs\refs\remotes
+
+21/11/2025  22:44    <DIR>          .
+21/11/2025  22:44    <DIR>          ..
+21/11/2025  22:44    <DIR>          origin
+               0 arquivo(s)              0 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\logs\refs\remotes\origin
+
+21/11/2025  22:44    <DIR>          .
+21/11/2025  22:44    <DIR>          ..
+23/11/2025  12:17             1.127 main
+               1 arquivo(s)          1.127 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects
+
+23/11/2025  12:17    <DIR>          .
+21/11/2025  22:37    <DIR>          02
+22/11/2025  17:32    <DIR>          09
+22/11/2025  23:23    <DIR>          16
+22/11/2025  17:30    <DIR>          36
+22/11/2025  23:23    <DIR>          3a
+22/11/2025  17:48    <DIR>          3f
+21/11/2025  22:37    <DIR>          44
+22/11/2025  17:48    <DIR>          45
+22/11/2025  16:23    <DIR>          5f
+23/11/2025  12:16    <DIR>          68
+22/11/2025  23:44    <DIR>          6b
+22/11/2025  23:23    <DIR>          6e
+23/11/2025  12:17    <DIR>          70
+21/11/2025  22:36    <DIR>          7d
+22/11/2025  16:23    <DIR>          80
+21/11/2025  22:36    <DIR>          98
+22/11/2025  23:44    <DIR>          c6
+23/11/2025  12:17    <DIR>          d0
+21/11/2025  22:36    <DIR>          e2
+22/11/2025  23:44    <DIR>          e4
+22/11/2025  17:48    <DIR>          eb
+22/11/2025  16:23    <DIR>          ff
+21/11/2025  22:34    <DIR>          info
+21/11/2025  22:34    <DIR>          pack
+               0 arquivo(s)              0 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\02
+
+21/11/2025  22:37    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+21/11/2025  22:37               181 0a14146fe5a06e70ab999f1154f035815f6361
+               1 arquivo(s)            181 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\09
+
+22/11/2025  17:32    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  17:32               180 4f00ff3794cd476cba6be281eeec0876824765
+               1 arquivo(s)            180 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\16
+
+22/11/2025  23:23    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  23:23               185 2cd416100d706228d39d9458aea08723247e16
+21/11/2025  22:36             2.251 8c04c4813e3b8d87b405eba4e40b5ce3a8ad8a
+               2 arquivo(s)          2.436 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\36
+
+22/11/2025  17:30    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  17:30               181 9906c7d5a9913f2587c4764339785b81e04c6f
+               1 arquivo(s)            181 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\3a
+
+22/11/2025  23:23    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  23:27             4.184 ae98aea111a58f0c7833adf813c9edd4f5da1d
+               1 arquivo(s)          4.184 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\3f
+
+22/11/2025  17:48    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  17:48               179 829a5994a242b5314023e3e62899163b4976c4
+21/11/2025  22:36               237 9ba410963aa5cf5727611fb6ed2dcc7c4911a7
+               2 arquivo(s)            416 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\44
+
+21/11/2025  22:37    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+21/11/2025  22:37               164 89a53e9ebb57c5a248baca04d2ce6fd88c12d7
+               1 arquivo(s)            164 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\45
+
+22/11/2025  17:48    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  17:48               181 93687314e704f018985a35088589cc8fd06894
+               1 arquivo(s)            181 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\5f
+
+22/11/2025  16:23    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  16:23             3.117 f72970ab5c64100a5e5f58462a1179d934ea81
+               1 arquivo(s)          3.117 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\68
+
+23/11/2025  12:16    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+23/11/2025  12:16             4.431 14951dc2a37e05a81f109377c1a2b71c10d4e1
+               1 arquivo(s)          4.431 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\6b
+
+22/11/2025  23:44    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  23:44               186 fbc6379628e8c93b4695bf42262755c52c80f0
+               1 arquivo(s)            186 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\6e
+
+22/11/2025  23:23    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  23:27               181 68c9ba7485ebe4a34aa61b0ccbcc4df7a8fb3c
+               1 arquivo(s)            181 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\70
+
+23/11/2025  12:17    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+23/11/2025  12:17               181 6ef6b0a6e7c2bc751e4917a49f47d482f9f5a4
+               1 arquivo(s)            181 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\7d
+
+21/11/2025  22:36    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+21/11/2025  22:36                69 37ffe217311cbb8fe570ba2e5463a336dfb5f4
+               1 arquivo(s)             69 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\80
+
+22/11/2025  16:23    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  16:23               195 8819b9b09fedecd110b1bea9a28770e6e0198c
+               1 arquivo(s)            195 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\98
+
+21/11/2025  22:36    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+21/11/2025  22:36               210 b7b262de62e04bf8ac3d405d434bc5f1dececa
+               1 arquivo(s)            210 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\c6
+
+22/11/2025  23:44    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  23:44             4.205 53cdc805ce4e9c7ec7edd37d75be6786daa7bb
+               1 arquivo(s)          4.205 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\d0
+
+23/11/2025  12:17    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+23/11/2025  12:17               181 72c30cc3940b4a89e8962a9bf659fd294f5a38
+22/11/2025  17:29             3.799 8d77bf9112865a7ae2e1feeea0d07694926508
+               2 arquivo(s)          3.980 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\e2
+
+21/11/2025  22:36    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+21/11/2025  22:36            12.349 f4b95a69e2f16944d727dbac17ebff0a3d6ce7
+               1 arquivo(s)         12.349 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\e4
+
+22/11/2025  23:44    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  23:44               181 594f0ab03920b20ab48ea491dbd27f1fc4119d
+               1 arquivo(s)            181 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\eb
+
+22/11/2025  17:48    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  17:48             3.488 69becc5e8a51c602a7be1dbe45cf99806070ce
+               1 arquivo(s)          3.488 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\ff
+
+22/11/2025  16:23    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+22/11/2025  16:23               180 4036b632b8950ba9af704468652885d1f0efe6
+               1 arquivo(s)            180 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\info
+
+21/11/2025  22:34    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+               0 arquivo(s)              0 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\objects\pack
+
+21/11/2025  22:34    <DIR>          .
+23/11/2025  12:17    <DIR>          ..
+               0 arquivo(s)              0 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\refs
+
+21/11/2025  22:44    <DIR>          .
+23/11/2025  12:17    <DIR>          heads
+21/11/2025  22:44    <DIR>          remotes
+21/11/2025  22:34    <DIR>          tags
+               0 arquivo(s)              0 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\refs\heads
+
+23/11/2025  12:17    <DIR>          .
+21/11/2025  22:44    <DIR>          ..
+23/11/2025  12:17                41 main
+               1 arquivo(s)             41 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\refs\remotes
+
+21/11/2025  22:44    <DIR>          .
+21/11/2025  22:44    <DIR>          ..
+23/11/2025  12:17    <DIR>          origin
+               0 arquivo(s)              0 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\refs\remotes\origin
+
+23/11/2025  12:17    <DIR>          .
+21/11/2025  22:44    <DIR>          ..
+23/11/2025  12:17                41 main
+               1 arquivo(s)             41 bytes
+
+ Pasta de c:\ControleDeReembolso\api\.git\refs\tags
+
+21/11/2025  22:34    <DIR>          .
+21/11/2025  22:44    <DIR>          ..
+               0 arquivo(s)              0 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules
+
+21/11/2025  17:48    <DIR>          .
+23/11/2025  19:32    <DIR>          ..
+21/11/2025  17:48    <DIR>          .bin
+21/11/2025  17:48            41.027 .package-lock.json
+21/11/2025  17:48    <DIR>          accepts
+21/11/2025  17:48    <DIR>          bcryptjs
+21/11/2025  17:48    <DIR>          body-parser
+21/11/2025  17:48    <DIR>          buffer-equal-constant-time
+21/11/2025  17:48    <DIR>          bytes
+21/11/2025  17:48    <DIR>          call-bind-apply-helpers
+21/11/2025  17:48    <DIR>          call-bound
+21/11/2025  17:48    <DIR>          content-disposition
+21/11/2025  17:48    <DIR>          content-type
+21/11/2025  17:48    <DIR>          cookie
+21/11/2025  17:48    <DIR>          cookie-signature
+21/11/2025  17:48    <DIR>          cors
+21/11/2025  17:48    <DIR>          debug
+21/11/2025  17:48    <DIR>          depd
+21/11/2025  17:48    <DIR>          dotenv
+21/11/2025  17:48    <DIR>          dunder-proto
+21/11/2025  17:48    <DIR>          ecdsa-sig-formatter
+21/11/2025  17:48    <DIR>          ee-first
+21/11/2025  17:48    <DIR>          encodeurl
+21/11/2025  17:48    <DIR>          es-define-property
+21/11/2025  17:48    <DIR>          es-errors
+21/11/2025  17:48    <DIR>          es-object-atoms
+21/11/2025  17:48    <DIR>          escape-html
+21/11/2025  17:48    <DIR>          etag
+21/11/2025  17:48    <DIR>          express
+21/11/2025  17:48    <DIR>          finalhandler
+21/11/2025  17:48    <DIR>          forwarded
+21/11/2025  17:48    <DIR>          fresh
+21/11/2025  17:48    <DIR>          function-bind
+21/11/2025  17:48    <DIR>          get-intrinsic
+21/11/2025  17:48    <DIR>          get-proto
+21/11/2025  17:48    <DIR>          gopd
+21/11/2025  17:48    <DIR>          has-symbols
+21/11/2025  17:48    <DIR>          hasown
+21/11/2025  17:48    <DIR>          http-errors
+21/11/2025  17:48    <DIR>          iconv-lite
+21/11/2025  17:48    <DIR>          inherits
+21/11/2025  17:48    <DIR>          ipaddr.js
+21/11/2025  17:48    <DIR>          is-promise
+21/11/2025  17:48    <DIR>          jsonwebtoken
+21/11/2025  17:48    <DIR>          jwa
+21/11/2025  17:48    <DIR>          jws
+21/11/2025  17:48    <DIR>          lodash.includes
+21/11/2025  17:48    <DIR>          lodash.isboolean
+21/11/2025  17:48    <DIR>          lodash.isinteger
+21/11/2025  17:48    <DIR>          lodash.isnumber
+21/11/2025  17:48    <DIR>          lodash.isplainobject
+21/11/2025  17:48    <DIR>          lodash.isstring
+21/11/2025  17:48    <DIR>          lodash.once
+21/11/2025  17:48    <DIR>          math-intrinsics
+21/11/2025  17:48    <DIR>          media-typer
+21/11/2025  17:48    <DIR>          merge-descriptors
+21/11/2025  17:48    <DIR>          mime-db
+21/11/2025  17:48    <DIR>          mime-types
+21/11/2025  17:48    <DIR>          ms
+21/11/2025  17:48    <DIR>          negotiator
+21/11/2025  17:48    <DIR>          object-assign
+21/11/2025  17:48    <DIR>          object-inspect
+21/11/2025  17:48    <DIR>          on-finished
+21/11/2025  17:48    <DIR>          once
+21/11/2025  17:48    <DIR>          parseurl
+21/11/2025  17:48    <DIR>          path-to-regexp
+21/11/2025  17:48    <DIR>          pg
+21/11/2025  17:48    <DIR>          pg-cloudflare
+21/11/2025  17:48    <DIR>          pg-connection-string
+21/11/2025  17:48    <DIR>          pg-int8
+21/11/2025  17:48    <DIR>          pg-pool
+21/11/2025  17:48    <DIR>          pg-protocol
+21/11/2025  17:48    <DIR>          pg-types
+21/11/2025  17:48    <DIR>          pgpass
+21/11/2025  17:48    <DIR>          postgres-array
+21/11/2025  17:48    <DIR>          postgres-bytea
+21/11/2025  17:48    <DIR>          postgres-date
+21/11/2025  17:48    <DIR>          postgres-interval
+21/11/2025  17:48    <DIR>          proxy-addr
+21/11/2025  17:48    <DIR>          qs
+21/11/2025  17:48    <DIR>          range-parser
+21/11/2025  17:48    <DIR>          raw-body
+21/11/2025  17:48    <DIR>          router
+21/11/2025  17:48    <DIR>          safe-buffer
+21/11/2025  17:48    <DIR>          safer-buffer
+21/11/2025  17:48    <DIR>          semver
+21/11/2025  17:48    <DIR>          send
+21/11/2025  17:48    <DIR>          serve-static
+21/11/2025  17:48    <DIR>          setprototypeof
+21/11/2025  17:48    <DIR>          side-channel
+21/11/2025  17:48    <DIR>          side-channel-list
+21/11/2025  17:48    <DIR>          side-channel-map
+21/11/2025  17:48    <DIR>          side-channel-weakmap
+21/11/2025  17:48    <DIR>          split2
+21/11/2025  17:48    <DIR>          statuses
+21/11/2025  17:48    <DIR>          toidentifier
+21/11/2025  17:48    <DIR>          type-is
+21/11/2025  17:48    <DIR>          unpipe
+21/11/2025  17:48    <DIR>          vary
+21/11/2025  17:48    <DIR>          wrappy
+21/11/2025  17:48    <DIR>          xtend
+               1 arquivo(s)         41.027 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\.bin
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               387 bcrypt
+21/11/2025  17:48               324 bcrypt.cmd
+21/11/2025  17:48               801 bcrypt.ps1
+21/11/2025  17:48               389 semver
+21/11/2025  17:48               325 semver.cmd
+21/11/2025  17:48               805 semver.ps1
+               6 arquivo(s)          3.031 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\accepts
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             5.218 HISTORY.md
+21/11/2025  17:48             5.253 index.js
+21/11/2025  17:48             1.167 LICENSE
+21/11/2025  17:48             1.157 package.json
+21/11/2025  17:48             4.122 README.md
+               5 arquivo(s)         16.917 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\bcryptjs
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48    <DIR>          bin
+21/11/2025  17:48                89 index.d.ts
+21/11/2025  17:48            41.528 index.js
+21/11/2025  17:48             1.530 LICENSE
+21/11/2025  17:48             2.068 package.json
+21/11/2025  17:48             7.628 README.md
+21/11/2025  17:48             5.653 types.d.ts
+21/11/2025  17:48    <DIR>          umd
+               6 arquivo(s)         58.496 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\bcryptjs\bin
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               528 bcrypt
+               1 arquivo(s)            528 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\bcryptjs\umd
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                83 index.d.ts
+21/11/2025  17:48            47.507 index.js
+21/11/2025  17:48                25 package.json
+21/11/2025  17:48             5.653 types.d.ts
+               4 arquivo(s)         53.268 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\body-parser
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48            18.277 HISTORY.md
+21/11/2025  17:48             1.315 index.js
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.172 LICENSE
+21/11/2025  17:48             1.272 package.json
+21/11/2025  17:48            19.420 README.md
+               5 arquivo(s)         41.456 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\body-parser\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             4.527 read.js
+21/11/2025  17:48    <DIR>          types
+21/11/2025  17:48             1.667 utils.js
+               2 arquivo(s)          6.194 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\body-parser\lib\types
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             4.508 json.js
+21/11/2025  17:48             1.353 raw.js
+21/11/2025  17:48             1.490 text.js
+21/11/2025  17:48             4.257 urlencoded.js
+               4 arquivo(s)         11.608 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\buffer-equal-constant-time
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                26 .npmignore
+21/11/2025  17:48                45 .travis.yml
+21/11/2025  17:48             1.045 index.js
+21/11/2025  17:48             1.518 LICENSE.txt
+21/11/2025  17:48               484 package.json
+21/11/2025  17:48             1.101 README.md
+21/11/2025  17:48             1.013 test.js
+               7 arquivo(s)          5.232 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\bytes
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.775 History.md
+21/11/2025  17:48             3.613 index.js
+21/11/2025  17:48             1.153 LICENSE
+21/11/2025  17:48               959 package.json
+21/11/2025  17:48             4.770 Readme.md
+               5 arquivo(s)         12.270 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\call-bind-apply-helpers
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               232 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               139 .nycrc
+21/11/2025  17:48                23 actualApply.d.ts
+21/11/2025  17:48               280 actualApply.js
+21/11/2025  17:48               614 applyBind.d.ts
+21/11/2025  17:48               264 applyBind.js
+21/11/2025  17:48             1.938 CHANGELOG.md
+21/11/2025  17:48                34 functionApply.d.ts
+21/11/2025  17:48                99 functionApply.js
+21/11/2025  17:48                33 functionCall.d.ts
+21/11/2025  17:48                97 functionCall.js
+21/11/2025  17:48             2.226 index.d.ts
+21/11/2025  17:48               511 index.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48             2.480 package.json
+21/11/2025  17:48             2.330 README.md
+21/11/2025  17:48                82 reflectApply.d.ts
+21/11/2025  17:48               132 reflectApply.js
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48               115 tsconfig.json
+              19 arquivo(s)         12.700 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\call-bind-apply-helpers\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               594 FUNDING.yml
+               1 arquivo(s)            594 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\call-bind-apply-helpers\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.658 index.js
+               1 arquivo(s)          2.658 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\call-bound
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               138 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               139 .nycrc
+21/11/2025  17:48             2.880 CHANGELOG.md
+21/11/2025  17:48             4.651 index.d.ts
+21/11/2025  17:48               687 index.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48             2.507 package.json
+21/11/2025  17:48             1.897 README.md
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48               137 tsconfig.json
+               9 arquivo(s)         14.107 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\call-bound\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               581 FUNDING.yml
+               1 arquivo(s)            581 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\call-bound\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.418 index.js
+               1 arquivo(s)          2.418 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\content-disposition
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.265 HISTORY.md
+21/11/2025  17:48            10.551 index.js
+21/11/2025  17:48             1.094 LICENSE
+21/11/2025  17:48             1.082 package.json
+21/11/2025  17:48             5.223 README.md
+               5 arquivo(s)         19.215 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\content-type
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               523 HISTORY.md
+21/11/2025  17:48             5.002 index.js
+21/11/2025  17:48             1.089 LICENSE
+21/11/2025  17:48             1.075 package.json
+21/11/2025  17:48             2.782 README.md
+               5 arquivo(s)         10.471 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\cookie
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             8.166 index.js
+21/11/2025  17:48             1.175 LICENSE
+21/11/2025  17:48             1.092 package.json
+21/11/2025  17:48            11.769 README.md
+21/11/2025  17:48             1.180 SECURITY.md
+               5 arquivo(s)         23.382 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\cookie-signature
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.481 History.md
+21/11/2025  17:48             1.413 index.js
+21/11/2025  17:48             1.124 LICENSE
+21/11/2025  17:48               548 package.json
+21/11/2025  17:48               427 Readme.md
+               5 arquivo(s)          4.993 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\cors
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.028 CONTRIBUTING.md
+21/11/2025  17:48             1.169 HISTORY.md
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.095 LICENSE
+21/11/2025  17:48               867 package.json
+21/11/2025  17:48             9.206 README.md
+               5 arquivo(s)         13.365 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\cors\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             6.623 index.js
+               1 arquivo(s)          6.623 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\debug
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.139 LICENSE
+21/11/2025  17:48             1.479 package.json
+21/11/2025  17:48            22.115 README.md
+21/11/2025  17:48    <DIR>          src
+               3 arquivo(s)         24.733 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\debug\src
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             6.103 browser.js
+21/11/2025  17:48             6.915 common.js
+21/11/2025  17:48               314 index.js
+21/11/2025  17:48             4.728 node.js
+               4 arquivo(s)         18.060 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\depd
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.256 History.md
+21/11/2025  17:48            10.932 index.js
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.094 LICENSE
+21/11/2025  17:48             1.335 package.json
+21/11/2025  17:48             9.988 Readme.md
+               5 arquivo(s)         25.605 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\depd\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48    <DIR>          browser
+               0 arquivo(s)              0 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\depd\lib\browser
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.512 index.js
+               1 arquivo(s)          1.512 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\dotenv
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48            21.194 CHANGELOG.md
+21/11/2025  17:48                11 config.d.ts
+21/11/2025  17:48               176 config.js
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.294 LICENSE
+21/11/2025  17:48             1.716 package.json
+21/11/2025  17:48            15.410 README-es.md
+21/11/2025  17:48            23.191 README.md
+21/11/2025  17:48                69 SECURITY.md
+               8 arquivo(s)         63.061 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\dotenv\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               385 cli-options.js
+21/11/2025  17:48               733 env-options.js
+21/11/2025  17:48             5.436 main.d.ts
+21/11/2025  17:48            12.787 main.js
+               4 arquivo(s)         19.341 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\dunder-proto
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                43 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               216 .nycrc
+21/11/2025  17:48             1.547 CHANGELOG.md
+21/11/2025  17:48               121 get.d.ts
+21/11/2025  17:48               980 get.js
+21/11/2025  17:48             1.073 LICENSE
+21/11/2025  17:48             2.108 package.json
+21/11/2025  17:48             1.907 README.md
+21/11/2025  17:48               144 set.d.ts
+21/11/2025  17:48             1.276 set.js
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48               116 tsconfig.json
+              11 arquivo(s)          9.531 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\dunder-proto\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               583 FUNDING.yml
+               1 arquivo(s)            583 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\dunder-proto\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.143 get.js
+21/11/2025  17:48                51 index.js
+21/11/2025  17:48             1.695 set.js
+               3 arquivo(s)          2.889 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\ecdsa-sig-formatter
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                11 CODEOWNERS
+21/11/2025  17:48            11.312 LICENSE
+21/11/2025  17:48             1.234 package.json
+21/11/2025  17:48             1.872 README.md
+21/11/2025  17:48    <DIR>          src
+               4 arquivo(s)         14.429 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\ecdsa-sig-formatter\src
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               694 ecdsa-sig-formatter.d.ts
+21/11/2025  17:48             5.009 ecdsa-sig-formatter.js
+21/11/2025  17:48               456 param-bytes-for-alg.js
+               3 arquivo(s)          6.159 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\ee-first
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.684 index.js
+21/11/2025  17:48             1.099 LICENSE
+21/11/2025  17:48               859 package.json
+21/11/2025  17:48             2.617 README.md
+               4 arquivo(s)          6.259 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\encodeurl
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.578 index.js
+21/11/2025  17:48             1.089 LICENSE
+21/11/2025  17:48             1.092 package.json
+21/11/2025  17:48             3.221 README.md
+               4 arquivo(s)          6.980 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\es-define-property
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               144 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               139 .nycrc
+21/11/2025  17:48             2.296 CHANGELOG.md
+21/11/2025  17:48                93 index.d.ts
+21/11/2025  17:48               288 index.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48             2.129 package.json
+21/11/2025  17:48             2.056 README.md
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48               138 tsconfig.json
+               9 arquivo(s)          8.354 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\es-define-property\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               564 FUNDING.yml
+               1 arquivo(s)            564 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\es-define-property\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.299 index.js
+               1 arquivo(s)          1.299 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\es-errors
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                43 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48             1.833 CHANGELOG.md
+21/11/2025  17:48                68 eval.d.ts
+21/11/2025  17:48                75 eval.js
+21/11/2025  17:48                56 index.d.ts
+21/11/2025  17:48                66 index.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48             2.174 package.json
+21/11/2025  17:48                71 range.d.ts
+21/11/2025  17:48                77 range.js
+21/11/2025  17:48             2.114 README.md
+21/11/2025  17:48                83 ref.d.ts
+21/11/2025  17:48                79 ref.js
+21/11/2025  17:48                74 syntax.d.ts
+21/11/2025  17:48                79 syntax.js
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48             3.170 tsconfig.json
+21/11/2025  17:48                67 type.d.ts
+21/11/2025  17:48                75 type.js
+21/11/2025  17:48                65 uri.d.ts
+21/11/2025  17:48                73 uri.js
+              20 arquivo(s)         11.413 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\es-errors\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               555 FUNDING.yml
+               1 arquivo(s)            555 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\es-errors\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               356 index.js
+               1 arquivo(s)            356 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\es-object-atoms
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               229 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48             2.136 CHANGELOG.md
+21/11/2025  17:48                59 index.d.ts
+21/11/2025  17:48                67 index.js
+21/11/2025  17:48                72 isObject.d.ts
+21/11/2025  17:48               161 isObject.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48             2.273 package.json
+21/11/2025  17:48             2.603 README.md
+21/11/2025  17:48               123 RequireObjectCoercible.d.ts
+21/11/2025  17:48               313 RequireObjectCoercible.js
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48               352 ToObject.d.ts
+21/11/2025  17:48               250 ToObject.js
+21/11/2025  17:48                81 tsconfig.json
+              14 arquivo(s)          9.790 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\es-object-atoms\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               555 FUNDING.yml
+               1 arquivo(s)            555 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\es-object-atoms\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.097 index.js
+               1 arquivo(s)          1.097 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\escape-html
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.362 index.js
+21/11/2025  17:48             1.157 LICENSE
+21/11/2025  17:48               434 package.json
+21/11/2025  17:48               707 Readme.md
+               4 arquivo(s)          3.660 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\etag
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.732 HISTORY.md
+21/11/2025  17:48             2.479 index.js
+21/11/2025  17:48             1.094 LICENSE
+21/11/2025  17:48             1.306 package.json
+21/11/2025  17:48             4.198 README.md
+               5 arquivo(s)         10.809 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\express
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48           122.540 History.md
+21/11/2025  17:48               224 index.js
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.249 LICENSE
+21/11/2025  17:48             2.693 package.json
+21/11/2025  17:48             9.350 Readme.md
+               5 arquivo(s)        136.056 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\express\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48            13.987 application.js
+21/11/2025  17:48             1.636 express.js
+21/11/2025  17:48            11.721 request.js
+21/11/2025  17:48            24.561 response.js
+21/11/2025  17:48             5.244 utils.js
+21/11/2025  17:48             3.809 view.js
+               6 arquivo(s)         60.958 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\finalhandler
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             5.289 HISTORY.md
+21/11/2025  17:48             5.818 index.js
+21/11/2025  17:48             1.119 LICENSE
+21/11/2025  17:48             1.179 package.json
+21/11/2025  17:48             4.120 README.md
+               5 arquivo(s)         17.525 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\forwarded
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               400 HISTORY.md
+21/11/2025  17:48             1.578 index.js
+21/11/2025  17:48             1.094 LICENSE
+21/11/2025  17:48             1.150 package.json
+21/11/2025  17:48             1.654 README.md
+               5 arquivo(s)          5.876 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\fresh
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.844 HISTORY.md
+21/11/2025  17:48             2.705 index.js
+21/11/2025  17:48             1.174 LICENSE
+21/11/2025  17:48             1.218 package.json
+21/11/2025  17:48             3.348 README.md
+               5 arquivo(s)         10.289 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\function-bind
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               253 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               216 .nycrc
+21/11/2025  17:48            13.812 CHANGELOG.md
+21/11/2025  17:48             2.043 implementation.js
+21/11/2025  17:48               126 index.js
+21/11/2025  17:48             1.052 LICENSE
+21/11/2025  17:48             2.262 package.json
+21/11/2025  17:48             1.755 README.md
+21/11/2025  17:48    <DIR>          test
+               8 arquivo(s)         21.519 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\function-bind\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               584 FUNDING.yml
+21/11/2025  17:48               157 SECURITY.md
+               2 arquivo(s)            741 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\function-bind\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               176 .eslintrc
+21/11/2025  17:48             8.991 index.js
+               2 arquivo(s)          9.167 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\get-intrinsic
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               647 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               139 .nycrc
+21/11/2025  17:48            15.537 CHANGELOG.md
+21/11/2025  17:48            14.439 index.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48             2.576 package.json
+21/11/2025  17:48             2.791 README.md
+21/11/2025  17:48    <DIR>          test
+               7 arquivo(s)         37.200 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\get-intrinsic\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               584 FUNDING.yml
+               1 arquivo(s)            584 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\get-intrinsic\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             8.758 GetIntrinsic.js
+               1 arquivo(s)          8.758 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\get-proto
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               104 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               139 .nycrc
+21/11/2025  17:48             1.054 CHANGELOG.md
+21/11/2025  17:48               126 index.d.ts
+21/11/2025  17:48               821 index.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48               125 Object.getPrototypeOf.d.ts
+21/11/2025  17:48               156 Object.getPrototypeOf.js
+21/11/2025  17:48             2.176 package.json
+21/11/2025  17:48             1.794 README.md
+21/11/2025  17:48                67 Reflect.getPrototypeOf.d.ts
+21/11/2025  17:48               150 Reflect.getPrototypeOf.js
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48               118 tsconfig.json
+              13 arquivo(s)          7.901 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\get-proto\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               580 FUNDING.yml
+               1 arquivo(s)            580 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\get-proto\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.359 index.js
+               1 arquivo(s)          2.359 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\gopd
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               224 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48             3.077 CHANGELOG.md
+21/11/2025  17:48                42 gOPD.d.ts
+21/11/2025  17:48                97 gOPD.js
+21/11/2025  17:48               173 index.d.ts
+21/11/2025  17:48               206 index.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48             2.070 package.json
+21/11/2025  17:48             1.562 README.md
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48               116 tsconfig.json
+              10 arquivo(s)          8.638 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\gopd\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               575 FUNDING.yml
+               1 arquivo(s)            575 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\gopd\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               656 index.js
+               1 arquivo(s)            656 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\has-symbols
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               164 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               139 .nycrc
+21/11/2025  17:48             9.431 CHANGELOG.md
+21/11/2025  17:48                73 index.d.ts
+21/11/2025  17:48               447 index.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48             2.974 package.json
+21/11/2025  17:48             2.044 README.md
+21/11/2025  17:48                69 shams.d.ts
+21/11/2025  17:48             1.922 shams.js
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48               143 tsconfig.json
+              11 arquivo(s)         18.477 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\has-symbols\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               582 FUNDING.yml
+               1 arquivo(s)            582 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\has-symbols\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               654 index.js
+21/11/2025  17:48    <DIR>          shams
+21/11/2025  17:48             2.139 tests.js
+               2 arquivo(s)          2.793 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\has-symbols\test\shams
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               797 core-js.js
+21/11/2025  17:48               760 get-own-property-symbols.js
+               2 arquivo(s)          1.557 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\hasown
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                43 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               216 .nycrc
+21/11/2025  17:48             2.579 CHANGELOG.md
+21/11/2025  17:48               117 index.d.ts
+21/11/2025  17:48               206 index.js
+21/11/2025  17:48             1.083 LICENSE
+21/11/2025  17:48             2.283 package.json
+21/11/2025  17:48             1.613 README.md
+21/11/2025  17:48                73 tsconfig.json
+               9 arquivo(s)          8.213 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\hasown\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               552 FUNDING.yml
+               1 arquivo(s)            552 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\http-errors
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             4.094 HISTORY.md
+21/11/2025  17:48             6.430 index.js
+21/11/2025  17:48             1.168 LICENSE
+21/11/2025  17:48             1.410 package.json
+21/11/2025  17:48             5.962 README.md
+               5 arquivo(s)         19.064 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\iconv-lite
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48    <DIR>          .idea
+21/11/2025  17:48             6.581 Changelog.md
+21/11/2025  17:48    <DIR>          encodings
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.064 LICENSE
+21/11/2025  17:48             1.131 package.json
+21/11/2025  17:48             6.352 README.md
+               4 arquivo(s)         15.128 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\iconv-lite\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               321 dependabot.yml
+               1 arquivo(s)            321 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\iconv-lite\.idea
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48    <DIR>          codeStyles
+21/11/2025  17:48               458 iconv-lite.iml
+21/11/2025  17:48    <DIR>          inspectionProfiles
+21/11/2025  17:48               272 modules.xml
+21/11/2025  17:48               180 vcs.xml
+               3 arquivo(s)            910 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\iconv-lite\.idea\codeStyles
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               142 codeStyleConfig.xml
+21/11/2025  17:48             2.141 Project.xml
+               2 arquivo(s)          2.283 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\iconv-lite\.idea\inspectionProfiles
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               251 Project_Default.xml
+               1 arquivo(s)            251 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\iconv-lite\encodings
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48            23.065 dbcs-codec.js
+21/11/2025  17:48             9.389 dbcs-data.js
+21/11/2025  17:48               733 index.js
+21/11/2025  17:48             6.309 internal.js
+21/11/2025  17:48             2.191 sbcs-codec.js
+21/11/2025  17:48            32.034 sbcs-data-generated.js
+21/11/2025  17:48             5.116 sbcs-data.js
+21/11/2025  17:48    <DIR>          tables
+21/11/2025  17:48             5.502 utf16.js
+21/11/2025  17:48             9.982 utf32.js
+21/11/2025  17:48             9.283 utf7.js
+              10 arquivo(s)        103.604 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\iconv-lite\encodings\tables
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48            17.717 big5-added.json
+21/11/2025  17:48            47.320 cp936.json
+21/11/2025  17:48            38.122 cp949.json
+21/11/2025  17:48            42.356 cp950.json
+21/11/2025  17:48            41.064 eucjp.json
+21/11/2025  17:48             2.216 gb18030-ranges.json
+21/11/2025  17:48             1.247 gbk-added.json
+21/11/2025  17:48            23.782 shiftjis.json
+               8 arquivo(s)        213.824 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\iconv-lite\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.109 bom-handling.js
+21/11/2025  17:48             1.387 index.d.ts
+21/11/2025  17:48             6.321 index.js
+21/11/2025  17:48             3.380 streams.js
+               4 arquivo(s)         12.197 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\inherits
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               250 inherits.js
+21/11/2025  17:48               753 inherits_browser.js
+21/11/2025  17:48               749 LICENSE
+21/11/2025  17:48               581 package.json
+21/11/2025  17:48             1.625 README.md
+               5 arquivo(s)          3.958 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\ipaddr.js
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             9.738 ipaddr.min.js
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.087 LICENSE
+21/11/2025  17:48               719 package.json
+21/11/2025  17:48             8.309 README.md
+               4 arquivo(s)         19.853 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\ipaddr.js\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48            19.333 ipaddr.js
+21/11/2025  17:48             2.959 ipaddr.js.d.ts
+               2 arquivo(s)         22.292 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\is-promise
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               108 index.d.ts
+21/11/2025  17:48               201 index.js
+21/11/2025  17:48               151 index.mjs
+21/11/2025  17:48             1.058 LICENSE
+21/11/2025  17:48               576 package.json
+21/11/2025  17:48               864 readme.md
+               6 arquivo(s)          2.958 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\jsonwebtoken
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               767 decode.js
+21/11/2025  17:48               276 index.js
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.121 LICENSE
+21/11/2025  17:48             1.507 package.json
+21/11/2025  17:48            17.709 README.md
+21/11/2025  17:48             9.350 sign.js
+21/11/2025  17:48             8.612 verify.js
+               7 arquivo(s)         39.342 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\jsonwebtoken\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                99 asymmetricKeyDetailsSupported.js
+21/11/2025  17:48               428 JsonWebTokenError.js
+21/11/2025  17:48               362 NotBeforeError.js
+21/11/2025  17:48               107 psSupported.js
+21/11/2025  17:48                99 rsaPssKeyDetailsSupported.js
+21/11/2025  17:48               412 timespan.js
+21/11/2025  17:48               395 TokenExpiredError.js
+21/11/2025  17:48             2.238 validateAsymmetricKey.js
+               8 arquivo(s)          4.140 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\jwa
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             6.801 index.js
+21/11/2025  17:48             1.068 LICENSE
+21/11/2025  17:48               749 package.json
+21/11/2025  17:48             5.371 README.md
+               4 arquivo(s)         13.989 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\jws
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.474 CHANGELOG.md
+21/11/2025  17:48               609 index.js
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.068 LICENSE
+21/11/2025  17:48               671 package.json
+21/11/2025  17:48             6.933 readme.md
+               5 arquivo(s)         10.755 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\jws\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.242 data-stream.js
+21/11/2025  17:48             2.197 sign-stream.js
+21/11/2025  17:48               262 tostring.js
+21/11/2025  17:48             3.226 verify-stream.js
+               4 arquivo(s)          6.927 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\lodash.includes
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48            18.716 index.js
+21/11/2025  17:48             1.951 LICENSE
+21/11/2025  17:48               749 package.json
+21/11/2025  17:48               467 README.md
+               4 arquivo(s)         21.883 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\lodash.isboolean
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.819 index.js
+21/11/2025  17:48             1.233 LICENSE
+21/11/2025  17:48               746 package.json
+21/11/2025  17:48               474 README.md
+               4 arquivo(s)          4.272 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\lodash.isinteger
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             6.036 index.js
+21/11/2025  17:48             1.951 LICENSE
+21/11/2025  17:48               752 package.json
+21/11/2025  17:48               474 README.md
+               4 arquivo(s)          9.213 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\lodash.isnumber
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.025 index.js
+21/11/2025  17:48             1.233 LICENSE
+21/11/2025  17:48               743 package.json
+21/11/2025  17:48               467 README.md
+               4 arquivo(s)          4.468 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\lodash.isplainobject
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             3.673 index.js
+21/11/2025  17:48             1.951 LICENSE
+21/11/2025  17:48               764 package.json
+21/11/2025  17:48               502 README.md
+               4 arquivo(s)          6.890 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\lodash.isstring
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.302 index.js
+21/11/2025  17:48             1.233 LICENSE
+21/11/2025  17:48               743 package.json
+21/11/2025  17:48               467 README.md
+               4 arquivo(s)          4.745 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\lodash.once
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             7.094 index.js
+21/11/2025  17:48             1.951 LICENSE
+21/11/2025  17:48               737 package.json
+21/11/2025  17:48               439 README.md
+               4 arquivo(s)         10.221 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\math-intrinsics
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               229 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48                18 abs.d.ts
+21/11/2025  17:48                73 abs.js
+21/11/2025  17:48             1.466 CHANGELOG.md
+21/11/2025  17:48    <DIR>          constants
+21/11/2025  17:48                20 floor.d.ts
+21/11/2025  17:48                77 floor.js
+21/11/2025  17:48                80 isFinite.d.ts
+21/11/2025  17:48               262 isFinite.js
+21/11/2025  17:48                87 isInteger.d.ts
+21/11/2025  17:48               410 isInteger.js
+21/11/2025  17:48                22 isNaN.d.ts
+21/11/2025  17:48               121 isNaN.js
+21/11/2025  17:48                79 isNegativeZero.d.ts
+21/11/2025  17:48               143 isNegativeZero.js
+21/11/2025  17:48             1.073 LICENSE
+21/11/2025  17:48                18 max.d.ts
+21/11/2025  17:48                73 max.js
+21/11/2025  17:48                18 min.d.ts
+21/11/2025  17:48                73 min.js
+21/11/2025  17:48                76 mod.d.ts
+21/11/2025  17:48               218 mod.js
+21/11/2025  17:48             2.670 package.json
+21/11/2025  17:48                18 pow.d.ts
+21/11/2025  17:48                73 pow.js
+21/11/2025  17:48             1.884 README.md
+21/11/2025  17:48                20 round.d.ts
+21/11/2025  17:48                77 round.js
+21/11/2025  17:48                57 sign.d.ts
+21/11/2025  17:48               214 sign.js
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48                36 tsconfig.json
+              30 arquivo(s)          9.685 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\math-intrinsics\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               561 FUNDING.yml
+               1 arquivo(s)            561 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\math-intrinsics\constants
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                71 maxArrayLength.d.ts
+21/11/2025  17:48               110 maxArrayLength.js
+21/11/2025  17:48                77 maxSafeInteger.d.ts
+21/11/2025  17:48               231 maxSafeInteger.js
+21/11/2025  17:48                71 maxValue.d.ts
+21/11/2025  17:48               197 maxValue.js
+               6 arquivo(s)            757 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\math-intrinsics\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             6.320 index.js
+               1 arquivo(s)          6.320 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\media-typer
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.155 HISTORY.md
+21/11/2025  17:48             3.090 index.js
+21/11/2025  17:48             1.094 LICENSE
+21/11/2025  17:48               925 package.json
+21/11/2025  17:48             2.992 README.md
+               5 arquivo(s)          9.256 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\merge-descriptors
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               635 index.d.ts
+21/11/2025  17:48               616 index.js
+21/11/2025  17:48             1.231 license
+21/11/2025  17:48               961 package.json
+21/11/2025  17:48               930 readme.md
+               5 arquivo(s)          4.373 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\mime-db
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48           203.840 db.json
+21/11/2025  17:48            13.886 HISTORY.md
+21/11/2025  17:48               189 index.js
+21/11/2025  17:48             1.172 LICENSE
+21/11/2025  17:48             1.530 package.json
+21/11/2025  17:48             4.949 README.md
+               6 arquivo(s)        225.566 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\mime-types
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             9.923 HISTORY.md
+21/11/2025  17:48             4.546 index.js
+21/11/2025  17:48             1.167 LICENSE
+21/11/2025  17:48             1.497 mimeScore.js
+21/11/2025  17:48             1.266 package.json
+21/11/2025  17:48             4.472 README.md
+               6 arquivo(s)         22.871 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\ms
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             3.024 index.js
+21/11/2025  17:48             1.079 license.md
+21/11/2025  17:48               732 package.json
+21/11/2025  17:48             1.886 readme.md
+               4 arquivo(s)          6.721 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\negotiator
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.619 HISTORY.md
+21/11/2025  17:48             2.516 index.js
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.177 LICENSE
+21/11/2025  17:48             1.080 package.json
+21/11/2025  17:48             5.330 README.md
+               5 arquivo(s)         12.722 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\negotiator\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             3.081 charset.js
+21/11/2025  17:48             4.155 encoding.js
+21/11/2025  17:48             3.409 language.js
+21/11/2025  17:48             5.343 mediaType.js
+               4 arquivo(s)         15.988 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\object-assign
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.108 index.js
+21/11/2025  17:48             1.119 license
+21/11/2025  17:48               764 package.json
+21/11/2025  17:48             1.502 readme.md
+               4 arquivo(s)          5.493 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\object-inspect
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.298 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               236 .nycrc
+21/11/2025  17:48            36.562 CHANGELOG.md
+21/11/2025  17:48    <DIR>          example
+21/11/2025  17:48            19.059 index.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48               365 package-support.json
+21/11/2025  17:48             2.841 package.json
+21/11/2025  17:48             2.988 readme.markdown
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48               534 test-core-js.js
+21/11/2025  17:48                42 util.inspect.js
+              10 arquivo(s)         64.996 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\object-inspect\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               585 FUNDING.yml
+               1 arquivo(s)            585 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\object-inspect\example
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               391 all.js
+21/11/2025  17:48               116 circular.js
+21/11/2025  17:48               126 fn.js
+21/11/2025  17:48               251 inspect.js
+               4 arquivo(s)            884 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\object-inspect\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.082 bigint.js
+21/11/2025  17:48    <DIR>          browser
+21/11/2025  17:48               451 circular.js
+21/11/2025  17:48               400 deep.js
+21/11/2025  17:48             1.575 element.js
+21/11/2025  17:48             1.536 err.js
+21/11/2025  17:48               683 fakes.js
+21/11/2025  17:48             2.227 fn.js
+21/11/2025  17:48               372 global.js
+21/11/2025  17:48               514 has.js
+21/11/2025  17:48               255 holes.js
+21/11/2025  17:48             6.633 indent-option.js
+21/11/2025  17:48             4.946 inspect.js
+21/11/2025  17:48               268 lowbyte.js
+21/11/2025  17:48             2.312 number.js
+21/11/2025  17:48             1.530 quoteStyle.js
+21/11/2025  17:48             1.546 toStringTag.js
+21/11/2025  17:48               302 undef.js
+21/11/2025  17:48             8.407 values.js
+              18 arquivo(s)         36.039 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\object-inspect\test\browser
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               416 dom.js
+               1 arquivo(s)            416 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\on-finished
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.865 HISTORY.md
+21/11/2025  17:48             4.430 index.js
+21/11/2025  17:48             1.167 LICENSE
+21/11/2025  17:48             1.057 package.json
+21/11/2025  17:48             5.160 README.md
+               5 arquivo(s)         13.679 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\once
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               765 LICENSE
+21/11/2025  17:48               935 once.js
+21/11/2025  17:48               574 package.json
+21/11/2025  17:48             1.772 README.md
+               4 arquivo(s)          4.046 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\parseurl
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.043 HISTORY.md
+21/11/2025  17:48             2.809 index.js
+21/11/2025  17:48             1.173 LICENSE
+21/11/2025  17:48             1.180 package.json
+21/11/2025  17:48             4.094 README.md
+               5 arquivo(s)         10.299 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\path-to-regexp
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48    <DIR>          dist
+21/11/2025  17:48             1.103 LICENSE
+21/11/2025  17:48             1.399 package.json
+21/11/2025  17:48             7.850 Readme.md
+               3 arquivo(s)         10.352 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\path-to-regexp\dist
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             4.006 index.d.ts
+21/11/2025  17:48            12.833 index.js
+21/11/2025  17:48            29.156 index.js.map
+               3 arquivo(s)         45.995 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48    <DIR>          esm
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.077 LICENSE
+21/11/2025  17:48             1.667 package.json
+21/11/2025  17:48             4.316 README.md
+               3 arquivo(s)          7.060 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg\esm
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               579 index.mjs
+               1 arquivo(s)            579 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48            18.759 client.js
+21/11/2025  17:48             5.248 connection-parameters.js
+21/11/2025  17:48             5.175 connection.js
+21/11/2025  17:48    <DIR>          crypto
+21/11/2025  17:48             2.426 defaults.js
+21/11/2025  17:48             1.728 index.js
+21/11/2025  17:48    <DIR>          native
+21/11/2025  17:48             7.314 query.js
+21/11/2025  17:48             2.812 result.js
+21/11/2025  17:48             2.132 stream.js
+21/11/2025  17:48               770 type-overrides.js
+21/11/2025  17:48             5.642 utils.js
+              10 arquivo(s)         52.006 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg\lib\crypto
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             4.096 cert-signatures.js
+21/11/2025  17:48             7.423 sasl.js
+21/11/2025  17:48             1.215 utils-legacy.js
+21/11/2025  17:48             2.649 utils-webcrypto.js
+21/11/2025  17:48               341 utils.js
+               5 arquivo(s)         15.724 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg\lib\native
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             8.066 client.js
+21/11/2025  17:48                50 index.js
+21/11/2025  17:48             4.757 query.js
+               3 arquivo(s)         12.873 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-cloudflare
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48    <DIR>          dist
+21/11/2025  17:48    <DIR>          esm
+21/11/2025  17:48             1.077 LICENSE
+21/11/2025  17:48               904 package.json
+21/11/2025  17:48             4.383 README.md
+21/11/2025  17:48    <DIR>          src
+               3 arquivo(s)          6.364 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-cloudflare\dist
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                53 empty.d.ts
+21/11/2025  17:48               258 empty.js
+21/11/2025  17:48               150 empty.js.map
+21/11/2025  17:48             1.150 index.d.ts
+21/11/2025  17:48             4.895 index.js
+21/11/2025  17:48             4.970 index.js.map
+               6 arquivo(s)         11.476 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-cloudflare\esm
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                87 index.mjs
+               1 arquivo(s)             87 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-cloudflare\src
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               144 empty.ts
+21/11/2025  17:48             4.410 index.ts
+21/11/2025  17:48               612 types.d.ts
+               3 arquivo(s)          5.166 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-connection-string
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48    <DIR>          esm
+21/11/2025  17:48               911 index.d.ts
+21/11/2025  17:48             6.265 index.js
+21/11/2025  17:48             1.082 LICENSE
+21/11/2025  17:48             1.375 package.json
+21/11/2025  17:48             4.933 README.md
+               5 arquivo(s)         14.566 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-connection-string\esm
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               336 index.mjs
+               1 arquivo(s)            336 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-int8
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.572 index.js
+21/11/2025  17:48               750 LICENSE
+21/11/2025  17:48               475 package.json
+21/11/2025  17:48               389 README.md
+               4 arquivo(s)          3.186 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-pool
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48    <DIR>          esm
+21/11/2025  17:48            13.417 index.js
+21/11/2025  17:48             1.073 LICENSE
+21/11/2025  17:48             1.052 package.json
+21/11/2025  17:48            13.956 README.md
+               4 arquivo(s)         29.498 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-pool\esm
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               125 index.mjs
+               1 arquivo(s)            125 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-protocol
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48    <DIR>          dist
+21/11/2025  17:48    <DIR>          esm
+21/11/2025  17:48             1.077 LICENSE
+21/11/2025  17:48             1.102 package.json
+21/11/2025  17:48               150 README.md
+21/11/2025  17:48    <DIR>          src
+               3 arquivo(s)          2.329 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-protocol\dist
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                11 b.d.ts
+21/11/2025  17:48               636 b.js
+21/11/2025  17:48               792 b.js.map
+21/11/2025  17:48               396 buffer-reader.d.ts
+21/11/2025  17:48             1.639 buffer-reader.js
+21/11/2025  17:48             1.747 buffer-reader.js.map
+21/11/2025  17:48               441 buffer-writer.d.ts
+21/11/2025  17:48             2.772 buffer-writer.js
+21/11/2025  17:48             3.087 buffer-writer.js.map
+21/11/2025  17:48                11 inbound-parser.test.d.ts
+21/11/2025  17:48            19.234 inbound-parser.test.js
+21/11/2025  17:48            14.688 inbound-parser.test.js.map
+21/11/2025  17:48               302 index.d.ts
+21/11/2025  17:48               791 index.js
+21/11/2025  17:48               522 index.js.map
+21/11/2025  17:48             6.103 messages.d.ts
+21/11/2025  17:48             4.973 messages.js
+21/11/2025  17:48             3.383 messages.js.map
+21/11/2025  17:48                11 outbound-serializer.test.d.ts
+21/11/2025  17:48            11.065 outbound-serializer.test.js
+21/11/2025  17:48            10.276 outbound-serializer.test.js.map
+21/11/2025  17:48             1.242 parser.d.ts
+21/11/2025  17:48            13.824 parser.js
+21/11/2025  17:48            11.246 parser.js.map
+21/11/2025  17:48             1.273 serializer.d.ts
+21/11/2025  17:48             6.937 serializer.js
+21/11/2025  17:48             7.124 serializer.js.map
+              27 arquivo(s)        124.526 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-protocol\esm
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               325 index.js
+               1 arquivo(s)            325 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-protocol\src
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               473 b.ts
+21/11/2025  17:48             1.440 buffer-reader.ts
+21/11/2025  17:48             2.503 buffer-writer.ts
+21/11/2025  17:48            15.158 inbound-parser.test.ts
+21/11/2025  17:48               443 index.ts
+21/11/2025  17:48             6.458 messages.ts
+21/11/2025  17:48             8.562 outbound-serializer.test.ts
+21/11/2025  17:48            13.469 parser.ts
+21/11/2025  17:48             7.193 serializer.ts
+21/11/2025  17:48    <DIR>          testing
+21/11/2025  17:48    <DIR>          types
+               9 arquivo(s)         55.699 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-protocol\src\testing
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.727 buffer-list.ts
+21/11/2025  17:48             4.360 test-buffers.ts
+               2 arquivo(s)          6.087 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-protocol\src\types
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                24 chunky.d.ts
+               1 arquivo(s)             24 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-types
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                83 .travis.yml
+21/11/2025  17:48             2.627 index.d.ts
+21/11/2025  17:48             1.214 index.js
+21/11/2025  17:48               759 index.test-d.ts
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48               232 Makefile
+21/11/2025  17:48               973 package.json
+21/11/2025  17:48             3.831 README.md
+21/11/2025  17:48    <DIR>          test
+               7 arquivo(s)          9.719 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-types\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               208 arrayParser.js
+21/11/2025  17:48             6.063 binaryParsers.js
+21/11/2025  17:48             1.564 builtins.js
+21/11/2025  17:48             5.367 textParsers.js
+               4 arquivo(s)         13.202 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pg-types\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               644 index.js
+21/11/2025  17:48            11.731 types.js
+               2 arquivo(s)         12.375 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pgpass
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.074 package.json
+21/11/2025  17:48             3.294 README.md
+               2 arquivo(s)          4.368 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\pgpass\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             5.488 helper.js
+21/11/2025  17:48               467 index.js
+               2 arquivo(s)          5.955 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\postgres-array
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               131 index.d.ts
+21/11/2025  17:48             2.320 index.js
+21/11/2025  17:48             1.111 license
+21/11/2025  17:48               649 package.json
+21/11/2025  17:48               692 readme.md
+               5 arquivo(s)          4.903 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\postgres-bytea
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               823 index.js
+21/11/2025  17:48             1.111 license
+21/11/2025  17:48               617 package.json
+21/11/2025  17:48               504 readme.md
+               4 arquivo(s)          3.055 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\postgres-date
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.676 index.js
+21/11/2025  17:48             1.111 license
+21/11/2025  17:48               607 package.json
+21/11/2025  17:48             1.521 readme.md
+               4 arquivo(s)          5.915 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\postgres-interval
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               422 index.d.ts
+21/11/2025  17:48             3.413 index.js
+21/11/2025  17:48             1.111 license
+21/11/2025  17:48               666 package.json
+21/11/2025  17:48             1.115 readme.md
+               5 arquivo(s)          6.727 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\proxy-addr
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.991 HISTORY.md
+21/11/2025  17:48             6.000 index.js
+21/11/2025  17:48             1.094 LICENSE
+21/11/2025  17:48             1.183 package.json
+21/11/2025  17:48             4.131 README.md
+               5 arquivo(s)         15.399 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\qs
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               597 .editorconfig
+21/11/2025  17:48             1.050 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               216 .nycrc
+21/11/2025  17:48            33.117 CHANGELOG.md
+21/11/2025  17:48    <DIR>          dist
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.600 LICENSE.md
+21/11/2025  17:48             3.137 package.json
+21/11/2025  17:48            25.887 README.md
+21/11/2025  17:48    <DIR>          test
+               7 arquivo(s)         65.604 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\qs\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               548 FUNDING.yml
+               1 arquivo(s)            548 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\qs\dist
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48            49.512 qs.js
+               1 arquivo(s)         49.512 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\qs\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               476 formats.js
+21/11/2025  17:48               211 index.js
+21/11/2025  17:48            12.620 parse.js
+21/11/2025  17:48            11.475 stringify.js
+21/11/2025  17:48             7.352 utils.js
+               5 arquivo(s)         32.134 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\qs\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             7.698 empty-keys-cases.js
+21/11/2025  17:48            51.326 parse.js
+21/11/2025  17:48            53.219 stringify.js
+21/11/2025  17:48             8.197 utils.js
+               4 arquivo(s)        120.440 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\range-parser
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               917 HISTORY.md
+21/11/2025  17:48             2.900 index.js
+21/11/2025  17:48             1.178 LICENSE
+21/11/2025  17:48             1.184 package.json
+21/11/2025  17:48             2.278 README.md
+               5 arquivo(s)          8.457 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\raw-body
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.315 index.d.ts
+21/11/2025  17:48             7.171 index.js
+21/11/2025  17:48             1.181 LICENSE
+21/11/2025  17:48    <DIR>          node_modules
+21/11/2025  17:48             1.275 package.json
+21/11/2025  17:48             6.553 README.md
+               5 arquivo(s)         18.495 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\raw-body\node_modules
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48    <DIR>          iconv-lite
+               0 arquivo(s)              0 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\raw-body\node_modules\iconv-lite
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             8.088 Changelog.md
+21/11/2025  17:48    <DIR>          encodings
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.064 LICENSE
+21/11/2025  17:48             1.937 package.json
+21/11/2025  17:48             6.587 README.md
+               4 arquivo(s)         17.676 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\raw-body\node_modules\iconv-lite\encodings
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48            20.464 dbcs-codec.js
+21/11/2025  17:48             8.881 dbcs-data.js
+21/11/2025  17:48               670 index.js
+21/11/2025  17:48             6.560 internal.js
+21/11/2025  17:48             2.114 sbcs-codec.js
+21/11/2025  17:48            32.034 sbcs-data-generated.js
+21/11/2025  17:48             4.527 sbcs-data.js
+21/11/2025  17:48    <DIR>          tables
+21/11/2025  17:48             5.097 utf16.js
+21/11/2025  17:48             9.063 utf32.js
+21/11/2025  17:48             8.580 utf7.js
+              10 arquivo(s)         97.990 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\raw-body\node_modules\iconv-lite\encodings\tables
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48            17.717 big5-added.json
+21/11/2025  17:48            47.320 cp936.json
+21/11/2025  17:48            38.122 cp949.json
+21/11/2025  17:48            42.356 cp950.json
+21/11/2025  17:48            41.064 eucjp.json
+21/11/2025  17:48             2.216 gb18030-ranges.json
+21/11/2025  17:48             1.247 gbk-added.json
+21/11/2025  17:48            23.782 shiftjis.json
+               8 arquivo(s)        213.824 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\raw-body\node_modules\iconv-lite\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.035 bom-handling.js
+21/11/2025  17:48    <DIR>          helpers
+21/11/2025  17:48             1.400 index.d.ts
+21/11/2025  17:48             6.342 index.js
+21/11/2025  17:48             2.979 streams.js
+               4 arquivo(s)         11.756 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\raw-body\node_modules\iconv-lite\lib\helpers
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               310 merge-exports.js
+               1 arquivo(s)            310 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\router
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             6.571 HISTORY.md
+21/11/2025  17:48            15.866 index.js
+21/11/2025  17:48    <DIR>          lib
+21/11/2025  17:48             1.128 LICENSE
+21/11/2025  17:48             1.142 package.json
+21/11/2025  17:48            12.656 README.md
+               5 arquivo(s)         37.363 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\router\lib
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             4.936 layer.js
+21/11/2025  17:48             4.552 route.js
+               2 arquivo(s)          9.488 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\safe-buffer
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             8.738 index.d.ts
+21/11/2025  17:48             1.670 index.js
+21/11/2025  17:48             1.081 LICENSE
+21/11/2025  17:48             1.057 package.json
+21/11/2025  17:48            19.555 README.md
+               5 arquivo(s)         32.101 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\safer-buffer
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.483 dangerous.js
+21/11/2025  17:48             1.094 LICENSE
+21/11/2025  17:48               822 package.json
+21/11/2025  17:48            12.794 Porting-Buffer.md
+21/11/2025  17:48             8.261 Readme.md
+21/11/2025  17:48             2.110 safer.js
+21/11/2025  17:48            15.735 tests.js
+               7 arquivo(s)         42.299 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\semver
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48    <DIR>          bin
+21/11/2025  17:48    <DIR>          classes
+21/11/2025  17:48    <DIR>          functions
+21/11/2025  17:48             2.630 index.js
+21/11/2025  17:48    <DIR>          internal
+21/11/2025  17:48               765 LICENSE
+21/11/2025  17:48             1.663 package.json
+21/11/2025  17:48                83 preload.js
+21/11/2025  17:48               619 range.bnf
+21/11/2025  17:48    <DIR>          ranges
+21/11/2025  17:48            24.763 README.md
+               6 arquivo(s)         30.523 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\semver\bin
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             4.739 semver.js
+               1 arquivo(s)          4.739 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\semver\classes
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             3.631 comparator.js
+21/11/2025  17:48               143 index.js
+21/11/2025  17:48            14.977 range.js
+21/11/2025  17:48             9.480 semver.js
+               4 arquivo(s)         28.231 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\semver\functions
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               205 clean.js
+21/11/2025  17:48               961 cmp.js
+21/11/2025  17:48             2.004 coerce.js
+21/11/2025  17:48               281 compare-build.js
+21/11/2025  17:48               132 compare-loose.js
+21/11/2025  17:48               170 compare.js
+21/11/2025  17:48             1.421 diff.js
+21/11/2025  17:48               126 eq.js
+21/11/2025  17:48               124 gt.js
+21/11/2025  17:48               127 gte.js
+21/11/2025  17:48               478 inc.js
+21/11/2025  17:48               124 lt.js
+21/11/2025  17:48               127 lte.js
+21/11/2025  17:48               136 major.js
+21/11/2025  17:48               136 minor.js
+21/11/2025  17:48               128 neq.js
+21/11/2025  17:48               331 parse.js
+21/11/2025  17:48               136 patch.js
+21/11/2025  17:48               234 prerelease.js
+21/11/2025  17:48               132 rcompare.js
+21/11/2025  17:48               163 rsort.js
+21/11/2025  17:48               247 satisfies.js
+21/11/2025  17:48               161 sort.js
+21/11/2025  17:48               176 valid.js
+              24 arquivo(s)          8.260 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\semver\internal
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               873 constants.js
+21/11/2025  17:48               240 debug.js
+21/11/2025  17:48               525 identifiers.js
+21/11/2025  17:48               802 lrucache.js
+21/11/2025  17:48               338 parse-options.js
+21/11/2025  17:48             8.141 re.js
+               6 arquivo(s)         10.919 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\semver\ranges
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               231 gtr.js
+21/11/2025  17:48               224 intersects.js
+21/11/2025  17:48               227 ltr.js
+21/11/2025  17:48               593 max-satisfying.js
+21/11/2025  17:48               591 min-satisfying.js
+21/11/2025  17:48             1.514 min-version.js
+21/11/2025  17:48             2.204 outside.js
+21/11/2025  17:48             1.355 simplify.js
+21/11/2025  17:48             7.524 subset.js
+21/11/2025  17:48               282 to-comparators.js
+21/11/2025  17:48               326 valid.js
+              11 arquivo(s)         15.071 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\send
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48            14.801 HISTORY.md
+21/11/2025  17:48            20.341 index.js
+21/11/2025  17:48             1.128 LICENSE
+21/11/2025  17:48             1.589 package.json
+21/11/2025  17:48             9.062 README.md
+               5 arquivo(s)         46.921 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\serve-static
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48            11.431 HISTORY.md
+21/11/2025  17:48             4.489 index.js
+21/11/2025  17:48             1.189 LICENSE
+21/11/2025  17:48             1.113 package.json
+21/11/2025  17:48             7.450 README.md
+               5 arquivo(s)         25.672 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\setprototypeof
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                93 index.d.ts
+21/11/2025  17:48               407 index.js
+21/11/2025  17:48               727 LICENSE
+21/11/2025  17:48             1.264 package.json
+21/11/2025  17:48               844 README.md
+21/11/2025  17:48    <DIR>          test
+               5 arquivo(s)          3.335 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\setprototypeof\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               690 index.js
+               1 arquivo(s)            690 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\side-channel
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               145 .editorconfig
+21/11/2025  17:48               203 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               216 .nycrc
+21/11/2025  17:48            10.450 CHANGELOG.md
+21/11/2025  17:48               486 index.d.ts
+21/11/2025  17:48             1.189 index.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48             2.361 package.json
+21/11/2025  17:48             2.152 README.md
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48               116 tsconfig.json
+              10 arquivo(s)         18.389 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\side-channel\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               583 FUNDING.yml
+               1 arquivo(s)            583 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\side-channel\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.573 index.js
+               1 arquivo(s)          2.573 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\side-channel-list
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               145 .editorconfig
+21/11/2025  17:48               185 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               216 .nycrc
+21/11/2025  17:48               818 CHANGELOG.md
+21/11/2025  17:48               335 index.d.ts
+21/11/2025  17:48             3.391 index.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48               721 list.d.ts
+21/11/2025  17:48             2.257 package.json
+21/11/2025  17:48             2.285 README.md
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48               116 tsconfig.json
+              11 arquivo(s)         11.540 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\side-channel-list\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               588 FUNDING.yml
+               1 arquivo(s)            588 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\side-channel-list\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.613 index.js
+               1 arquivo(s)          2.613 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\side-channel-map
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               145 .editorconfig
+21/11/2025  17:48               185 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               216 .nycrc
+21/11/2025  17:48             1.191 CHANGELOG.md
+21/11/2025  17:48               367 index.d.ts
+21/11/2025  17:48             1.981 index.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48             2.336 package.json
+21/11/2025  17:48             2.278 README.md
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48               116 tsconfig.json
+              10 arquivo(s)          9.886 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\side-channel-map\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               587 FUNDING.yml
+               1 arquivo(s)            587 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\side-channel-map\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.875 index.js
+               1 arquivo(s)          2.875 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\side-channel-weakmap
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               145 .editorconfig
+21/11/2025  17:48               203 .eslintrc
+21/11/2025  17:48    <DIR>          .github
+21/11/2025  17:48               216 .nycrc
+21/11/2025  17:48             1.477 CHANGELOG.md
+21/11/2025  17:48               382 index.d.ts
+21/11/2025  17:48             2.708 index.js
+21/11/2025  17:48             1.071 LICENSE
+21/11/2025  17:48             2.447 package.json
+21/11/2025  17:48             2.342 README.md
+21/11/2025  17:48    <DIR>          test
+21/11/2025  17:48               116 tsconfig.json
+              10 arquivo(s)         11.107 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\side-channel-weakmap\.github
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               591 FUNDING.yml
+               1 arquivo(s)            591 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\side-channel-weakmap\test
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             2.969 index.js
+               1 arquivo(s)          2.969 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\split2
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               472 bench.js
+21/11/2025  17:48             3.764 index.js
+21/11/2025  17:48               764 LICENSE
+21/11/2025  17:48             1.113 package.json
+21/11/2025  17:48             3.381 README.md
+21/11/2025  17:48             7.925 test.js
+               6 arquivo(s)         17.419 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\statuses
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             1.789 codes.json
+21/11/2025  17:48             1.628 HISTORY.md
+21/11/2025  17:48             2.610 index.js
+21/11/2025  17:48             1.172 LICENSE
+21/11/2025  17:48             1.440 package.json
+21/11/2025  17:48             3.866 README.md
+               6 arquivo(s)         12.505 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\toidentifier
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               128 HISTORY.md
+21/11/2025  17:48               504 index.js
+21/11/2025  17:48             1.108 LICENSE
+21/11/2025  17:48             1.142 package.json
+21/11/2025  17:48             1.803 README.md
+               5 arquivo(s)          4.685 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\type-is
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48             6.864 HISTORY.md
+21/11/2025  17:48             5.493 index.js
+21/11/2025  17:48             1.172 LICENSE
+21/11/2025  17:48             1.236 package.json
+21/11/2025  17:48             6.504 README.md
+               5 arquivo(s)         21.269 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\unpipe
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48                59 HISTORY.md
+21/11/2025  17:48             1.118 index.js
+21/11/2025  17:48             1.114 LICENSE
+21/11/2025  17:48               770 package.json
+21/11/2025  17:48             1.250 README.md
+               5 arquivo(s)          4.311 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\vary
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               792 HISTORY.md
+21/11/2025  17:48             2.930 index.js
+21/11/2025  17:48             1.094 LICENSE
+21/11/2025  17:48             1.215 package.json
+21/11/2025  17:48             2.716 README.md
+               5 arquivo(s)          8.747 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\wrappy
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               765 LICENSE
+21/11/2025  17:48               606 package.json
+21/11/2025  17:48               685 README.md
+21/11/2025  17:48               905 wrappy.js
+               4 arquivo(s)          2.961 bytes
+
+ Pasta de c:\ControleDeReembolso\api\node_modules\xtend
+
+21/11/2025  17:48    <DIR>          .
+21/11/2025  17:48    <DIR>          ..
+21/11/2025  17:48               545 .jshintrc
+21/11/2025  17:48               384 immutable.js
+21/11/2025  17:48             1.078 LICENSE
+21/11/2025  17:48               369 mutable.js
+21/11/2025  17:48             1.056 package.json
+21/11/2025  17:48               726 README.md
+21/11/2025  17:48             2.307 test.js
+               7 arquivo(s)          6.465 bytes
+
+     Total de Arquivos na Lista:
+             984 arquivo(s)      3.681.484 bytes
+             694 pasta(s)   25.842.409.472 bytes dispon¡veis

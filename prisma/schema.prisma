@@ -1,0 +1,126 @@
+// api/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// TABELA usuarios
+// ─────────────────────────────────────────────
+
+model Usuario {
+  id                 Int       @id @default(autoincrement())
+  nome               String
+  email              String
+  senha_hash         String
+  tipo               String    @default("user")
+  ativo              Boolean   @default(true)
+  criado_em          DateTime  @default(now())
+  cpfcnpj            String?
+  telefone           String?
+  primeiro_acesso    Boolean   @default(true)
+  reset_token        String?
+  reset_token_expires DateTime?
+
+  solicitacoes       Solicitacao[]
+
+  @@map("usuarios")
+}
+
+// ─────────────────────────────────────────────
+// TABELA solicitacoes
+// ─────────────────────────────────────────────
+
+model Solicitacao {
+  id                  Int       @id @default(autoincrement())
+  usuario_id          Int
+  solicitante_nome    String?
+  beneficiario_nome   String?
+  beneficiario_doc    String?
+  numero_nf           String?
+  data_nf             DateTime? @db.Date
+  valor_nf            Decimal?  @db.Decimal
+  emitente_nome       String?
+  emitente_doc        String?
+  status              String?
+  data_solicitacao    DateTime? @db.Date @default(now())
+  data_ultima_mudanca DateTime?
+  criado_em           DateTime  @default(now())
+  atualizado_em       DateTime  @default(now())
+  protocolo           String?
+  valor               Decimal?  @db.Decimal
+  descricao           String?
+  data_pagamento      DateTime? @db.Date
+  valor_reembolso     Decimal?  @db.Decimal
+
+  usuario             Usuario   @relation(fields: [usuario_id], references: [id])
+  arquivos            SolicitacaoArquivo[]
+  statusHistory       SolicitacaoStatusHistory[]
+
+  @@map("solicitacoes")
+}
+
+// ─────────────────────────────────────────────
+// TABELA solicitacao_arquivos
+// ─────────────────────────────────────────────
+
+model SolicitacaoArquivo {
+  id            Int       @id @default(autoincrement())
+  solicitacao_id Int
+  tipo          String    @db.VarChar(50)
+  original_name String
+  mime_type     String?
+  path          String
+  created_at    DateTime? @default(now())
+
+  solicitacao   Solicitacao @relation(fields: [solicitacao_id], references: [id])
+
+  @@map("solicitacao_arquivos")
+}
+
+// ─────────────────────────────────────────────
+// TABELA solicitacao_status_history
+// ─────────────────────────────────────────────
+
+model SolicitacaoStatusHistory {
+  id             Int       @id @default(autoincrement())
+  solicitacao_id Int
+  status         String
+  data           DateTime
+  origem         String?
+  obs            String?
+
+  solicitacao    Solicitacao @relation(fields: [solicitacao_id], references: [id])
+
+  @@map("solicitacao_status_history")
+}
+
+// ─────────────────────────────────────────────
+// TABELA descricoes (tabela auxiliar)
+// ─────────────────────────────────────────────
+
+model Descricao {
+  id       Int     @id @default(autoincrement())
+  descricao String
+  ativo    Boolean @default(true)
+
+  @@map("descricoes")
+}
+
+// ─────────────────────────────────────────────
+// TABELA status (tabela auxiliar)
+// ─────────────────────────────────────────────
+
+model Status {
+  id        Int     @id @default(autoincrement())
+  nome      String?
+  descricao String?
+  ativo     Boolean @default(true)
+
+  @@map("status")
+}
