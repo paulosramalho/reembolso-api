@@ -847,62 +847,70 @@ app.post('/solicitacoes', authMiddleware, async (req, res) => {
 // --------- Upload de arquivos vinculados à solicitação ----------
 
 // rota de upload
+// Exemplo: multer configurado antes
+// const upload = multer({ dest: path.join(__dirname, 'uploads') })
+
 app.post(
   '/solicitacoes/:id/arquivos',
-  authMiddleware,
-  upload.single('file'),
+  authMiddleware,            // garante que só logado acesse
+  upload.single('file'),     // 👈 TEM que ser 'file' pra casar com o front
   async (req, res) => {
     try {
-      const solicitacaoId = parseInt(req.params.id, 10);
-      const { tipo: tipoUsuario, id: usuarioId } = req.user;
-      const { tipo: tipoArquivo } = req.body;
-
-      if (!Number.isFinite(solicitacaoId)) {
-        return res.status(400).json({ error: 'Solicitação inválida.' });
+      const solId = Number(req.params.id);
+      if (!Number.isFinite(solId)) {
+        return res.status(400).json({ error: 'ID inválido.' });
       }
 
+      // checa se solicitação existe
+      const solRes = await db.query(
+        'SELECT usuario_id FROM solicitacoes WHERE id = $1',
+        [solId]
+      );
+      if (!solRes.rows.length) {
+        return res.status(404).json({ error: 'Solicitação não encontrada.' });
+      }
+
+      const solicitacao = solRes.rows[0];
+      const { id: usuarioId, tipo } = req.user;
+      const tipoNorm = String(tipo || '').toLowerCase();
+      const isAdmin = tipoNorm === 'admin' || tipoNorm === 'adm';
+
+      // se não for admin, só pode anexar em solicitação dele
+      if (!isAdmin && solicitacao.usuario_id !== usuarioId) {
+        return res
+          .status(403)
+          .json({ error: 'Você não tem permissão para anexar nesta solicitação.' });
+      }
+
+      // arquivo obrigatório
       if (!req.file) {
         return res.status(400).json({ error: 'Arquivo é obrigatório.' });
       }
 
-      // valida solicitação
-      let query = 'SELECT * FROM solicitacoes WHERE id = $1';
-      const params = [solicitacaoId];
+      // tipo vindo do body: EXTRA, NF, RS, etc.
+      const tipoDoc = (req.body?.tipo || 'EXTRA').toUpperCase();
 
-      if (tipoUsuario !== 'admin') {
-        query += ' AND usuario_id = $2';
-        params.push(usuarioId);
-      }
+      // grava no banco
+      const { originalname, filename } = req.file;
 
-      const existing = await db.query(query, params);
-      if (existing.rows.length === 0) {
-        return res.status(404).json({
-          error: 'Solicitação não encontrada para este usuário.',
-        });
-      }
-
-      // salva no banco
       const insert = await db.query(
-        `INSERT INTO solicitacao_arquivos
-           (solicitacao_id, tipo, original_name, mime_type, path)
-         VALUES ($1,$2,$3,$4,$5)
-         RETURNING
-           id, solicitacao_id, tipo, original_name, mime_type, path, created_at`,
-        [
-          solicitacaoId,
-          tipoArquivo || 'OUTRO',
-          req.file.originalname,
-          req.file.mimetype,
-          req.file.filename,
-        ]
+        `
+        INSERT INTO solicitacao_arquivos
+          (solicitacao_id, tipo, original_name, path, uploaded_by)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, tipo, original_name, path
+        `,
+        [solId, tipoDoc, originalname, filename, usuarioId]
       );
 
-      return res.status(201).json(insert.rows[0]);
+      const saved = insert.rows[0];
+
+      return res.status(201).json(saved);
     } catch (err) {
-      console.error('Erro em POST /solicitacoes/:id/arquivos:', err);
+      console.error('Erro em POST /solicitacoes/:id/arquivos', err);
       return res
         .status(500)
-        .json({ error: 'Erro ao anexar arquivo à solicitação.' });
+        .json({ error: 'Erro ao salvar documento extra.' });
     }
   }
 );
