@@ -489,13 +489,6 @@ app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
   }
 });
 
-    res.json(dados);
-  } catch (err) {
-    console.error("Erro em GET /solicitacoes/usuario/:id:", err);
-    res.status(500).json({ erro: "Erro ao buscar solicitações." });
-  }
-});
-
 // =========================
 // 🔰 SOLICITAÇÕES — LISTA GERAL (ADMIN)
 // =========================
@@ -511,23 +504,6 @@ app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
     });
 
     const resposta = registros.map(mapSolicitacaoComSolicitante);
-
-    res.json(resposta);
-  } catch (err) {
-    console.error("Erro em GET /solicitacoes:", err);
-    res.status(500).json({ erro: "Erro ao listar solicitações." });
-  }
-});
-
-    // Juntar dados do solicitante
-    const usuarios = await prisma.usuario.findMany();
-    const mapaUsuarios = new Map();
-    usuarios.forEach((u) => mapaUsuarios.set(u.id, u));
-
-    const resposta = registros.map((r) => ({
-      ...r,
-      solicitante: mapaUsuarios.get(r.usuario_id) || null,
-    }));
 
     res.json(resposta);
   } catch (err) {
@@ -884,23 +860,6 @@ app.get("/kanban", authMiddleware, adminOnly, async (req, res) => {
         if (!grupos[s.status]) grupos[s.status] = [];
         grupos[s.status].push(s);
       });
-
-    res.json(grupos);
-  } catch (err) {
-    console.error("Erro em GET /kanban:", err);
-    res.status(500).json({ erro: "Erro ao buscar dados do Kanban." });
-  }
-});
-
-    const grupos = {};
-    statusList.forEach((s) => {
-      grupos[s.nome] = [];
-    });
-
-    solicitacoes.forEach((s) => {
-      if (!grupos[s.status]) grupos[s.status] = [];
-      grupos[s.status].push(s);
-    });
 
     res.json(grupos);
   } catch (err) {
