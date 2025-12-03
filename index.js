@@ -333,7 +333,7 @@ app.get("/usuarios/:id", async (req, res) => {
   }
 });
 
-// Listar todos os usuários (para tela de Configurações)
+// Listar todos os usuários
 app.get("/usuarios", async (req, res) => {
   try {
     const usuarios = await prisma.usuario.findMany({
@@ -344,6 +344,40 @@ app.get("/usuarios", async (req, res) => {
   } catch (err) {
     console.error("Erro em GET /usuarios:", err);
     res.status(500).json({ erro: "Erro ao listar usuários." });
+  }
+});
+
+// Listar descrições de despesas
+app.get("/descricoes", async (req, res) => {
+  try {
+    const descricoes = await prisma.$queryRaw`
+      SELECT id, descricao, ativo
+      FROM descricoes
+      WHERE ativo = true
+      ORDER BY descricao;
+    `;
+
+    res.json(descricoes);
+  } catch (err) {
+    console.error("Erro em GET /descricoes:", err);
+    res.status(500).json({ erro: "Erro ao listar descrições." });
+  }
+});
+
+// Listar status das solicitações
+app.get("/status", async (req, res) => {
+  try {
+    const listaStatus = await prisma.$queryRaw`
+      SELECT id, nome, descricao, ativo
+      FROM status
+      WHERE ativo = true
+      ORDER BY id;
+    `;
+
+    res.json(listaStatus);
+  } catch (err) {
+    console.error("Erro em GET /status:", err);
+    res.status(500).json({ erro: "Erro ao listar status." });
   }
 });
 
