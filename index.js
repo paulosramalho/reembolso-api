@@ -39,7 +39,15 @@ app.use(
   cors({
     origin(origin, callback) {
       if (!origin) return callback(null, true);
+
+      // libera os que estiverem listados explicitamente
       if (allowedOrigins.includes(origin)) return callback(null, true);
+
+      // libera qualquer domínio da Vercel do projeto
+      if (origin.endsWith(".vercel.app") && origin.includes("controle-de-reembolso")) {
+        return callback(null, true);
+      }
+
       return callback(new Error("Não permitido pelo CORS"), false);
     },
     credentials: true,
@@ -90,7 +98,7 @@ app.post("/auth/login", async (req, res) => {
     if (!identificador || !senha) {
       return res
         .status(400)
-        .json({ erro: "Usuário e senha são obrigatórios." });
+        .json({ ok: false, mensagem: "Usuário e senha são obrigatórios." });
     }
 
     const usuario = await prisma.usuario.findFirst({
@@ -100,19 +108,23 @@ app.post("/auth/login", async (req, res) => {
     });
 
     if (!usuario) {
-      return res.status(400).json({ erro: "Usuário não encontrado." });
+      return res
+        .status(400)
+        .json({ ok: false, mensagem: "Usuário não encontrado." });
     }
 
     const senhaOk = await bcrypt.compare(senha, usuario.senha_hash);
     if (!senhaOk) {
-      return res.status(400).json({ erro: "Usuário ou senha inválidos." });
+      return res
+        .status(400)
+        .json({ ok: false, mensagem: "Usuário ou senha inválidos." });
     }
 
     if (!JWT_SECRET) {
       console.error("JWT_SECRET não definido");
       return res
         .status(500)
-        .json({ erro: "Erro de configuração do servidor." });
+        .json({ ok: false, mensagem: "Erro de configuração do servidor." });
     }
 
     const token = jwt.sign(
@@ -130,7 +142,9 @@ app.post("/auth/login", async (req, res) => {
       tipo: usuario.tipo,
     };
 
+    // resposta bem ampla pra agradar qualquer lógica do front
     res.json({
+      ok: true,
       success: true,
       status: "ok",
       message: "Login realizado com sucesso.",
@@ -147,7 +161,7 @@ app.post("/auth/login", async (req, res) => {
     console.error("Erro em /auth/login:", err);
     res
       .status(500)
-      .json({ erro: "Erro interno ao tentar fazer login." });
+      .json({ ok: false, mensagem: "Erro interno ao tentar fazer login." });
   }
 });
 
@@ -200,6 +214,63 @@ app.post("/auth/reset-solicitar", async (req, res) => {
   } catch (err) {
     console.error("Erro em /auth/reset-solicitar:", err);
     res.status(500).json({ erro: "Erro ao solicitar redefinição de senha." });
+  }
+});
+
+// Alias para compatibilidade com o front: /auth/esqueci-senha
+app.post("/auth/esqueci-senha", async (req, res) => {
+  // Reaproveita a mesma lógica de reset-solicitar
+  try {
+    const { email } = req.body;
+
+    const usuario = await prisma.usuario.findUnique({ where: { email } });
+    if (!usuario) {
+      return res
+        .status(400)
+        .json({ ok: false, mensagem: "Usuário não encontrado." });
+    }
+
+    const token = Math.random().toString(36).substring(2, 15);
+    const expires = new Date(Date.now() + 60 * 60 * 1000);
+
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        reset_token: token,
+        reset_token_expires: expires,
+      },
+    });
+
+    const base = APP_BASE_URL.replace(/\/$/, "");
+    const resetLink = `${base}/resetar-senha/${token}`;
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: process.env.SMTP_SECURE === "true",
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.MAIL_FROM,
+      to: usuario.email,
+      subject: "Redefinição de senha - Controle de Reembolso",
+      html: `
+        <p>Olá, ${usuario.nome}</p>
+        <p>Clique no link abaixo para redefinir sua senha:</p>
+        <p><a href="${resetLink}">${resetLink}</a></p>
+      `,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro em /auth/esqueci-senha:", err);
+    res
+      .status(500)
+      .json({ ok: false, mensagem: "Erro ao solicitar redefinição de senha." });
   }
 });
 
