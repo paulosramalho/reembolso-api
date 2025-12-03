@@ -296,7 +296,7 @@ app.post("/auth/esqueci-senha", async (req, res) => {
 
     let emailEnviado = false;
 
-    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+        if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
       try {
         const transporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST,
@@ -318,6 +318,17 @@ app.post("/auth/esqueci-senha", async (req, res) => {
             <p><a href="${resetLink}">${resetLink}</a></p>
           `,
         });
+
+        emailEnviado = true;
+      } catch (errMail) {
+        console.error("⚠ Erro ao enviar e-mail de redefinição:", errMail);
+      }
+    } else {
+      console.warn("⚠ SMTP não configurado. E-mail de reset NÃO enviado.");
+    }
+
+    // Mesmo que o e-mail falhe, o token foi gerado e salvo
+    res.json({ ok: true, emailEnviado });
 
         emailEnviado = true;
       } catch (errMail) {
@@ -412,11 +423,17 @@ app.get("/usuarios", async (req, res) => {
 });
 
 function mapSolicitacaoComSolicitante(s) {
-  const nomeSolicitante = s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
+  const nomeSolicitante =
+    s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
+
   return {
     ...s,
+    // compatibilidade com o front:
     solicitante_nome: nomeSolicitante,
     solicitante: nomeSolicitante,
+
+    // anexos no nome antigo que o front espera
+    solicitacao_arquivos: s.arquivos || s.solicitacao_arquivos || [],
   };
 }
 
