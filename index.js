@@ -291,31 +291,44 @@ app.post("/auth/esqueci-senha", async (req, res) => {
       },
     });
 
-    const base = APP_BASE_URL.replace(/\/$/, "");
-    const resetLink = `${base}/resetar-senha/${token}`;
+    const base = (APP_BASE_URL || "").replace(/\/$/, "");
+    const resetLink = `${base || "https://controle-de-reembolso.vercel.app"}/resetar-senha/${token}`;
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
-      secure: process.env.SMTP_SECURE === "true",
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
+    let emailEnviado = false;
 
-    await transporter.sendMail({
-      from: process.env.MAIL_FROM,
-      to: usuario.email,
-      subject: "Redefinição de senha - Controle de Reembolso",
-      html: `
-        <p>Olá, ${usuario.nome}</p>
-        <p>Clique no link abaixo para redefinir sua senha:</p>
-        <p><a href="${resetLink}">${resetLink}</a></p>
-      `,
-    });
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: Number(process.env.SMTP_PORT) || 587,
+          secure: process.env.SMTP_SECURE === "true",
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+        });
 
-    res.json({ ok: true });
+        await transporter.sendMail({
+          from: process.env.MAIL_FROM || process.env.SMTP_USER,
+          to: usuario.email,
+          subject: "Redefinição de senha - Controle de Reembolso",
+          html: `
+            <p>Olá, ${usuario.nome}</p>
+            <p>Clique no link abaixo para redefinir sua senha:</p>
+            <p><a href="${resetLink}">${resetLink}</a></p>
+          `,
+        });
+
+        emailEnviado = true;
+      } catch (errMail) {
+        console.error("⚠ Erro ao enviar e-mail de redefinição:", errMail);
+      }
+    } else {
+      console.warn("⚠ SMTP não configurado. E-mail de reset NÃO enviado.");
+    }
+
+    // Mesmo que o e-mail falhe, o token foi gerado e salvo
+    res.json({ ok: true, emailEnviado });
   } catch (err) {
     console.error("Erro em /auth/esqueci-senha:", err);
     res
@@ -398,6 +411,15 @@ app.get("/usuarios", async (req, res) => {
   }
 });
 
+function mapSolicitacaoComSolicitante(s) {
+  const nomeSolicitante = s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
+  return {
+    ...s,
+    solicitante_nome: nomeSolicitante,
+    solicitante: nomeSolicitante,
+  };
+}
+
 // =========================
 // 🔰 DESCRIÇÕES DE DESPESAS
 // =========================
@@ -444,19 +466,27 @@ app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
     const { id } = req.params;
     const usuarioId = Number(id);
 
-    // Se não for admin, só pode ver as próprias
     if (req.user.tipo !== "admin" && req.user.id !== usuarioId) {
       return res.status(403).json({ erro: "Acesso negado para este usuário." });
     }
 
     const dados = await prisma.solicitacao.findMany({
-  where: { usuario_id: usuarioId },
-  orderBy: { criado_em: "desc" },
-  include: {
-    arquivos: true,       // ✅ relação com a tabela de arquivos
-    statusHistory: true,  // ✅ histórico de status
-    usuario: true,        // ✅ dados do solicitante
-  },
+      where: { usuario_id: usuarioId },
+      orderBy: { criado_em: "desc" },
+      include: {
+        arquivos: true,
+        statusHistory: true,
+        usuario: true,
+      },
+    });
+
+    const resposta = dados.map(mapSolicitacaoComSolicitante);
+
+    res.json(resposta);
+  } catch (err) {
+    console.error("Erro em GET /solicitacoes/usuario/:id:", err);
+    res.status(500).json({ erro: "Erro ao buscar solicitações." });
+  }
 });
 
     res.json(dados);
@@ -472,12 +502,21 @@ app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
 app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
   try {
     const registros = await prisma.solicitacao.findMany({
-  orderBy: { criado_em: "desc" },
-  include: {
-    arquivos: true,       // ✅
-    statusHistory: true,  // ✅
-    usuario: true,        // ✅
-  },
+      orderBy: { criado_em: "desc" },
+      include: {
+        arquivos: true,
+        statusHistory: true,
+        usuario: true,
+      },
+    });
+
+    const resposta = registros.map(mapSolicitacaoComSolicitante);
+
+    res.json(resposta);
+  } catch (err) {
+    console.error("Erro em GET /solicitacoes:", err);
+    res.status(500).json({ erro: "Erro ao listar solicitações." });
+  }
 });
 
     // Juntar dados do solicitante
@@ -826,12 +865,31 @@ app.get("/kanban", authMiddleware, adminOnly, async (req, res) => {
     });
 
     const solicitacoes = await prisma.solicitacao.findMany({
-  orderBy: { criado_em: "desc" },
-  include: {
-    arquivos: true,       // ✅
-    statusHistory: true,  // (se quiser usar no futuro)
-    usuario: true,        // ✅ já traz o dono da solicitação
-  },
+      orderBy: { criado_em: "desc" },
+      include: {
+        arquivos: true,
+        statusHistory: true,
+        usuario: true,
+      },
+    });
+
+    const grupos = {};
+    statusList.forEach((s) => {
+      grupos[s.nome] = [];
+    });
+
+    solicitacoes
+      .map(mapSolicitacaoComSolicitante)
+      .forEach((s) => {
+        if (!grupos[s.status]) grupos[s.status] = [];
+        grupos[s.status].push(s);
+      });
+
+    res.json(grupos);
+  } catch (err) {
+    console.error("Erro em GET /kanban:", err);
+    res.status(500).json({ erro: "Erro ao buscar dados do Kanban." });
+  }
 });
 
     const grupos = {};
@@ -868,13 +926,17 @@ app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
       totaisPorStatus[item.status] = item._count.status;
     });
 
-    const ultimas = await prisma.solicitacao.findMany({
+    const ultimasRaw = await prisma.solicitacao.findMany({
       orderBy: { criado_em: "desc" },
       take: 10,
       include: {
-  arquivos: true, // ✅
-},
+        arquivos: true,
+        statusHistory: true,
+        usuario: true,
+      },
     });
+
+    const ultimas = ultimasRaw.map(mapSolicitacaoComSolicitante);
 
     res.json({
       totalSolicitacoes,
