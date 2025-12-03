@@ -86,36 +86,67 @@ app.get("/", (req, res) => {
 // ───────────── AUTENTICAÇÃO ─────────────
 
 app.post("/auth/login", async (req, res) => {
-  const { email, senha } = req.body;
+  try {
+    const { email, login, senha } = req.body;
 
-  const usuario = await prisma.usuario.findUnique({ where: { email } });
+    // O front pode mandar "email" ou "login" (email ou nome)
+    const identificador = email || login;
 
-  if (!usuario) {
-    return res.status(400).json({ erro: "Usuário não encontrado" });
+    if (!identificador || !senha) {
+      return res
+        .status(400)
+        .json({ erro: "Usuário e senha são obrigatórios." });
+    }
+
+    // Procura por e-mail ou por nome
+    const usuario = await prisma.usuario.findFirst({
+      where: {
+        OR: [
+          { email: identificador },
+          { nome: identificador },
+        ],
+      },
+    });
+
+    if (!usuario) {
+      return res.status(400).json({ erro: "Usuário não encontrado." });
+    }
+
+    const senhaOk = await bcrypt.compare(senha, usuario.senha_hash);
+    if (!senhaOk) {
+      return res.status(400).json({ erro: "Usuário ou senha inválidos." });
+    }
+
+    if (!JWT_SECRET) {
+      console.error("⚠️ JWT_SECRET não definido nas variáveis de ambiente.");
+      return res
+        .status(500)
+        .json({ erro: "Erro de configuração do servidor." });
+    }
+
+    const token = jwt.sign(
+      { id: usuario.id, tipo: usuario.tipo },
+      JWT_SECRET,
+      { expiresIn: "8h" }
+    );
+
+    res.json({
+      token,
+      usuario: {
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email,
+        cpfcnpj: usuario.cpfcnpj,
+        telefone: usuario.telefone,
+        tipo: usuario.tipo,
+      },
+    });
+  } catch (err) {
+    console.error("Erro em /auth/login:", err);
+    res
+      .status(500)
+      .json({ erro: "Erro interno ao tentar fazer login." });
   }
-
-  const senhaOk = await bcrypt.compare(senha, usuario.senha_hash);
-  if (!senhaOk) {
-    return res.status(400).json({ erro: "Senha inválida" });
-  }
-
-  const token = jwt.sign(
-    { id: usuario.id, tipo: usuario.tipo },
-    JWT_SECRET,
-    { expiresIn: "8h" }
-  );
-
-  res.json({
-    token,
-    usuario: {
-      id: usuario.id,
-      nome: usuario.nome,
-      email: usuario.email,
-      cpfcnpj: usuario.cpfcnpj,
-      telefone: usuario.telefone,
-      tipo: usuario.tipo,
-    },
-  });
 });
 
 // ───────────── RESET DE SENHA ─────────────
