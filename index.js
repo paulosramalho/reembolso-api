@@ -38,17 +38,21 @@ if (APP_BASE_URL) {
 app.use(
   cors({
     origin(origin, callback) {
+      // Requisições sem origin (Postman, etc.)
       if (!origin) return callback(null, true);
 
-      // libera os que estiverem listados explicitamente
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      // Explicitamente permitidos
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
 
-      // libera qualquer domínio da Vercel do projeto
+      // Qualquer domínio da Vercel relacionado ao projeto
       if (origin.endsWith(".vercel.app") && origin.includes("controle-de-reembolso")) {
         return callback(null, true);
       }
 
-      return callback(new Error("Não permitido pelo CORS"), false);
+      // Rejeita silenciosamente (sem lançar erro -> não dá 500)
+      return callback(null, false);
     },
     credentials: true,
   })
