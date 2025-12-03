@@ -450,12 +450,14 @@ app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
     }
 
     const dados = await prisma.solicitacao.findMany({
-      where: { usuario_id: usuarioId },
-      orderBy: { criado_em: "desc" },
-      include: {
-        solicitacao_arquivos: true,
-      },
-    });
+  where: { usuario_id: usuarioId },
+  orderBy: { criado_em: "desc" },
+  include: {
+    arquivos: true,       // ✅ relação com a tabela de arquivos
+    statusHistory: true,  // ✅ histórico de status
+    usuario: true,        // ✅ dados do solicitante
+  },
+});
 
     res.json(dados);
   } catch (err) {
@@ -470,11 +472,13 @@ app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
 app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
   try {
     const registros = await prisma.solicitacao.findMany({
-      orderBy: { criado_em: "desc" },
-      include: {
-        solicitacao_arquivos: true,
-      },
-    });
+  orderBy: { criado_em: "desc" },
+  include: {
+    arquivos: true,       // ✅
+    statusHistory: true,  // ✅
+    usuario: true,        // ✅
+  },
+});
 
     // Juntar dados do solicitante
     const usuarios = await prisma.usuario.findMany();
@@ -822,11 +826,13 @@ app.get("/kanban", authMiddleware, adminOnly, async (req, res) => {
     });
 
     const solicitacoes = await prisma.solicitacao.findMany({
-      orderBy: { criado_em: "desc" },
-      include: {
-        solicitacao_arquivos: true,
-      },
-    });
+  orderBy: { criado_em: "desc" },
+  include: {
+    arquivos: true,       // ✅
+    statusHistory: true,  // (se quiser usar no futuro)
+    usuario: true,        // ✅ já traz o dono da solicitação
+  },
+});
 
     const grupos = {};
     statusList.forEach((s) => {
@@ -866,8 +872,8 @@ app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
       orderBy: { criado_em: "desc" },
       take: 10,
       include: {
-        solicitacao_arquivos: true,
-      },
+  arquivos: true, // ✅
+},
     });
 
     res.json({
@@ -905,8 +911,8 @@ app.get("/relatorios/irpf", authMiddleware, adminOnly, async (req, res) => {
     const dados = await prisma.solicitacao.findMany({
       orderBy: { criado_em: "desc" },
       include: {
-        solicitacao_arquivos: true,
-      },
+  arquivos: true, // ✅
+},
     });
 
     const resultado = dados.map((s) => ({
