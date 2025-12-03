@@ -64,6 +64,38 @@ app.use(
 );
 
 // =========================
+// 🔰 MIDDLEWARE — AUTENTICAÇÃO & PERFIL
+// =========================
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ erro: "Token não enviado." });
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    // payload: { id, tipo, iat, exp }
+    req.user = {
+      id: payload.id,
+      tipo: payload.tipo,
+    };
+    next();
+  } catch (err) {
+    console.error("Erro ao verificar token:", err);
+    return res.status(401).json({ erro: "Token inválido." });
+  }
+}
+
+function adminOnly(req, res, next) {
+  if (!req.user || req.user.tipo !== "admin") {
+    return res.status(403).json({ erro: "Acesso restrito a administradores." });
+  }
+  next();
+}
+
+// =========================
 // 🔰 UPLOADS
 // =========================
 const uploadDir = path.join(__dirname, "uploads");
@@ -398,15 +430,20 @@ app.get("/status", async (req, res) => {
 // =========================
 // 🔰 SOLICITAÇÕES — LISTAR POR USUÁRIO (Solicitante real)
 // =========================
-app.get("/solicitacoes/usuario/:id", async (req, res) => {
+app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+    const usuarioId = Number(id);
+
+    // Se não for admin, só pode ver as próprias
+    if (req.user.tipo !== "admin" && req.user.id !== usuarioId) {
+      return res.status(403).json({ erro: "Acesso negado para este usuário." });
+    }
 
     const dados = await prisma.solicitacao.findMany({
-      where: { usuario_id: Number(id) },
+      where: { usuario_id: usuarioId },
       orderBy: { criado_em: "desc" },
       include: {
-        // tabelas auxiliares
         solicitacao_arquivos: true,
       },
     });
@@ -421,7 +458,7 @@ app.get("/solicitacoes/usuario/:id", async (req, res) => {
 // =========================
 // 🔰 SOLICITAÇÕES — LISTA GERAL (ADMIN)
 // =========================
-app.get("/solicitacoes", async (req, res) => {
+app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
   try {
     const registros = await prisma.solicitacao.findMany({
       orderBy: { criado_em: "desc" },
@@ -433,9 +470,9 @@ app.get("/solicitacoes", async (req, res) => {
     // Juntar dados do solicitante
     const usuarios = await prisma.usuario.findMany();
     const mapaUsuarios = new Map();
-    usuarios.forEach(u => mapaUsuarios.set(u.id, u));
+    usuarios.forEach((u) => mapaUsuarios.set(u.id, u));
 
-    const resposta = registros.map(r => ({
+    const resposta = registros.map((r) => ({
       ...r,
       solicitante: mapaUsuarios.get(r.usuario_id) || null,
     }));
@@ -450,16 +487,24 @@ app.get("/solicitacoes", async (req, res) => {
 // =========================
 // 🔰 CRIAR SOLICITAÇÃO
 // =========================
-app.post("/solicitacoes", async (req, res) => {
+app.post("/solicitacoes", authMiddleware, async (req, res) => {
   try {
     const dados = req.body;
+    const usuarioIdSolicitante = Number(dados.usuario_id);
 
     // IMPORTANTE:
-    // usuario_id = solicitante REAL, enviado pelo front.
+    // usuario_id = solicitante REAL.
+    // Se não for admin, só pode criar para si mesmo.
+    if (req.user.tipo !== "admin" && req.user.id !== usuarioIdSolicitante) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a criar solicitação para outro solicitante.",
+      });
+    }
+
     const nova = await prisma.solicitacao.create({
       data: {
         ...dados,
-        usuario_id: Number(dados.usuario_id),
+        usuario_id: usuarioIdSolicitante,
       },
     });
 
@@ -473,13 +518,29 @@ app.post("/solicitacoes", async (req, res) => {
 // =========================
 // 🔰 ATUALIZAR SOLICITAÇÃO
 // =========================
-app.put("/solicitacoes/:id", async (req, res) => {
+app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const dados = req.body;
+    const solicitacaoId = Number(id);
+
+    const existente = await prisma.solicitacao.findUnique({
+      where: { id: solicitacaoId },
+    });
+
+    if (!existente) {
+      return res.status(404).json({ erro: "Solicitação não encontrada." });
+    }
+
+    // Se não for admin, só pode atualizar se for o solicitante
+    if (req.user.tipo !== "admin" && existente.usuario_id !== req.user.id) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a alterar esta solicitação.",
+      });
+    }
 
     const atualizado = await prisma.solicitacao.update({
-      where: { id: Number(id) },
+      where: { id: solicitacaoId },
       data: dados,
     });
 
@@ -495,6 +556,7 @@ app.put("/solicitacoes/:id", async (req, res) => {
 // =========================
 app.post(
   "/solicitacoes/:id/arquivos",
+  authMiddleware,
   upload.single("arquivo"),
   async (req, res) => {
     try {
@@ -514,6 +576,13 @@ app.post(
         return res
           .status(404)
           .json({ erro: "Solicitação não encontrada." });
+      }
+
+      // Se não for admin, só pode anexar na própria solicitação
+      if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
+        return res.status(403).json({
+          erro: "Usuário não autorizado a anexar arquivos nesta solicitação.",
+        });
       }
 
       const registro = await prisma.solicitacao_arquivos.create({
@@ -537,9 +606,24 @@ app.post(
 // =========================
 // 🔰 LISTAR ARQUIVOS
 // =========================
-app.get("/solicitacoes/:id/arquivos", async (req, res) => {
+app.get("/solicitacoes/:id/arquivos", authMiddleware, async (req, res) => {
   try {
     const solicitacaoId = Number(req.params.id);
+
+    const solicitacao = await prisma.solicitacao.findUnique({
+      where: { id: solicitacaoId },
+    });
+
+    if (!solicitacao) {
+      return res.status(404).json({ erro: "Solicitação não encontrada." });
+    }
+
+    // Se não for admin, só pode ver seus próprios arquivos
+    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a visualizar arquivos desta solicitação.",
+      });
+    }
 
     const arquivos = await prisma.solicitacao_arquivos.findMany({
       where: { solicitacao_id: solicitacaoId },
@@ -556,7 +640,7 @@ app.get("/solicitacoes/:id/arquivos", async (req, res) => {
 // =========================
 // 🔰 DOWNLOAD ARQUIVO
 // =========================
-app.get("/arquivos/:id/download", async (req, res) => {
+app.get("/arquivos/:id/download", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -566,6 +650,21 @@ app.get("/arquivos/:id/download", async (req, res) => {
 
     if (!registro) {
       return res.status(404).json({ erro: "Arquivo não encontrado." });
+    }
+
+    const solicitacao = await prisma.solicitacao.findUnique({
+      where: { id: registro.solicitacao_id },
+    });
+
+    if (!solicitacao) {
+      return res.status(404).json({ erro: "Solicitação não encontrada." });
+    }
+
+    // Se não for admin, só pode baixar arquivo das próprias solicitações
+    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a baixar este arquivo.",
+      });
     }
 
     const fullPath = path.join(uploadDir, registro.path);
@@ -586,7 +685,7 @@ app.get("/arquivos/:id/download", async (req, res) => {
 // =========================
 // 🔰 REMOVER ARQUIVO
 // =========================
-app.delete("/arquivos/:id", async (req, res) => {
+app.delete("/arquivos/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -596,6 +695,20 @@ app.delete("/arquivos/:id", async (req, res) => {
 
     if (!registro) {
       return res.status(404).json({ erro: "Arquivo não encontrado." });
+    }
+
+    const solicitacao = await prisma.solicitacao.findUnique({
+      where: { id: registro.solicitacao_id },
+    });
+
+    if (!solicitacao) {
+      return res.status(404).json({ erro: "Solicitação não encontrada." });
+    }
+
+    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a remover este arquivo.",
+      });
     }
 
     const fullPath = path.join(uploadDir, registro.path);
@@ -618,12 +731,27 @@ app.delete("/arquivos/:id", async (req, res) => {
 // =========================
 // 🔰 HISTÓRICO DE STATUS (POR SOLICITAÇÃO)
 // =========================
-app.get("/solicitacoes/:id/historico", async (req, res) => {
+app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+    const solicitacaoId = Number(id);
+
+    const solicitacao = await prisma.solicitacao.findUnique({
+      where: { id: solicitacaoId },
+    });
+
+    if (!solicitacao) {
+      return res.status(404).json({ erro: "Solicitação não encontrada." });
+    }
+
+    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a ver histórico desta solicitação.",
+      });
+    }
 
     const lista = await prisma.solicitacao_status_history.findMany({
-      where: { solicitacao_id: Number(id) },
+      where: { solicitacao_id: solicitacaoId },
       orderBy: { data: "desc" },
     });
 
@@ -635,9 +763,9 @@ app.get("/solicitacoes/:id/historico", async (req, res) => {
 });
 
 // =========================
-// 🔰 ATUALIZAR STATUS DA SOLICITAÇÃO (com histórico)
+// 🔰 ATUALIZAR STATUS DA SOLICITAÇÃO (com histórico) — ADMIN
 // =========================
-app.put("/solicitacoes/:id/status", async (req, res) => {
+app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
     const { status, origem, obs } = req.body;
@@ -647,11 +775,11 @@ app.put("/solicitacoes/:id/status", async (req, res) => {
       where: { ativo: true },
     });
 
-    const nomesStatus = statusList.map(s => s.nome);
+    const nomesStatus = statusList.map((s) => s.nome);
     if (!nomesStatus.includes(status)) {
       return res.status(400).json({
         erro: "Status inválido. Use um dos disponíveis na tabela 'status'.",
-        permitidos: nomesStatus
+        permitidos: nomesStatus,
       });
     }
 
@@ -683,33 +811,29 @@ app.put("/solicitacoes/:id/status", async (req, res) => {
 });
 
 // =========================
-// 🔰 KANBAN (DINÂMICO — baseado na tabela STATUS)
+// 🔰 KANBAN (DINÂMICO — baseado na tabela STATUS) — ADMIN
 // =========================
-app.get("/kanban", async (req, res) => {
+app.get("/kanban", authMiddleware, adminOnly, async (req, res) => {
   try {
-    // 1) obter todos os status ativos
     const statusList = await prisma.status.findMany({
       where: { ativo: true },
       orderBy: { id: "asc" },
     });
 
-    // 2) obter todas as solicitações
     const solicitacoes = await prisma.solicitacao.findMany({
       orderBy: { criado_em: "desc" },
       include: {
-        solicitante: true,
         solicitacao_arquivos: true,
       },
     });
 
-    // 3) agrupar
     const grupos = {};
-    statusList.forEach(s => {
+    statusList.forEach((s) => {
       grupos[s.nome] = [];
     });
 
-    solicitacoes.forEach(s => {
-      if (!grupos[s.status]) grupos[s.status] = []; // segurança
+    solicitacoes.forEach((s) => {
+      if (!grupos[s.status]) grupos[s.status] = [];
       grupos[s.status].push(s);
     });
 
@@ -721,25 +845,22 @@ app.get("/kanban", async (req, res) => {
 });
 
 // =========================
-// 🔰 DASHBOARD (VERSÃO 3 — igual ao layout atual)
+// 🔰 DASHBOARD (VERSÃO 3 — igual ao layout atual) — ADMIN
 // =========================
-app.get("/dashboard", async (req, res) => {
+app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
   try {
-    // Totais gerais
     const totalSolicitacoes = await prisma.solicitacao.count();
 
-    // Totais por status (dinâmico)
     const totaisPorStatusRaw = await prisma.solicitacao.groupBy({
       by: ["status"],
-      _count: { status: true }
+      _count: { status: true },
     });
 
     const totaisPorStatus = {};
-    totaisPorStatusRaw.forEach(item => {
+    totaisPorStatusRaw.forEach((item) => {
       totaisPorStatus[item.status] = item._count.status;
     });
 
-    // Últimas solicitações
     const ultimas = await prisma.solicitacao.findMany({
       orderBy: { criado_em: "desc" },
       take: 10,
@@ -762,13 +883,14 @@ app.get("/dashboard", async (req, res) => {
 // =========================
 // 🔰 HISTÓRICO GLOBAL DAS SOLICITAÇÕES (ADMIN)
 // =========================
-app.get("/historico", async (req, res) => {
+app.get("/historico", authMiddleware, adminOnly, async (req, res) => {
   try {
     const lista = await prisma.solicitacao_status_history.findMany({
       orderBy: { data: "desc" },
-      include: {
-        solicitacao: true,
-      },
+      // se a model não tiver relação "solicitacao", remova o include abaixo:
+      // include: {
+      //   solicitacao: true,
+      // },
     });
 
     res.json(lista);
@@ -779,9 +901,9 @@ app.get("/historico", async (req, res) => {
 });
 
 // =========================
-// 🔰 RELATÓRIOS — IRPF
+// 🔰 RELATÓRIOS — IRPF (ADMIN)
 // =========================
-app.get("/relatorios/irpf", async (req, res) => {
+app.get("/relatorios/irpf", authMiddleware, adminOnly, async (req, res) => {
   try {
     const dados = await prisma.solicitacao.findMany({
       orderBy: { criado_em: "desc" },
@@ -790,7 +912,6 @@ app.get("/relatorios/irpf", async (req, res) => {
       },
     });
 
-    // Formato simples para exportação
     const resultado = dados.map((s) => ({
       id: s.id,
       solicitante_id: s.usuario_id,
@@ -815,9 +936,9 @@ app.get("/relatorios/irpf", async (req, res) => {
 });
 
 // =========================
-// 🔰 GERAR ESTRUTURA DO BANCO (TXT DINÂMICO)
+// 🔰 GERAR ESTRUTURA DO BANCO (TXT DINÂMICO) — ADMIN
 // =========================
-app.get("/config/estrutura-banco", async (req, res) => {
+app.get("/config/estrutura-banco", authMiddleware, adminOnly, async (req, res) => {
   try {
     const result = await prisma.$queryRawUnsafe(`
       SELECT table_name, column_name, data_type, is_nullable
@@ -836,7 +957,9 @@ app.get("/config/estrutura-banco", async (req, res) => {
         tabelaAtual = row.table_name;
         txt += `TABELA ${tabelaAtual}\n`;
       }
-      txt += `- ${row.column_name} ${row.data_type} ${row.is_nullable === "NO" ? "NOT NULL" : ""}\n`;
+      txt += `- ${row.column_name} ${row.data_type} ${
+        row.is_nullable === "NO" ? "NOT NULL" : ""
+      }\n`;
     }
 
     const filePath = path.join(__dirname, "estrutura_banco.txt");
@@ -863,4 +986,3 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`🚀 API Reembolso rodando na porta ${PORT}`);
 });
-
