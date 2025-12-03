@@ -130,16 +130,20 @@ app.post("/auth/login", async (req, res) => {
       { expiresIn: "8h" }
     );
 
+    const userPayload = {
+      id: usuario.id,
+      nome: usuario.nome,
+      email: usuario.email,
+      cpfcnpj: usuario.cpfcnpj,
+      telefone: usuario.telefone,
+      tipo: usuario.tipo,
+    };
+
     res.json({
+      success: true,
       token,
-      usuario: {
-        id: usuario.id,
-        nome: usuario.nome,
-        email: usuario.email,
-        cpfcnpj: usuario.cpfcnpj,
-        telefone: usuario.telefone,
-        tipo: usuario.tipo,
-      },
+      user: userPayload,
+      usuario: userPayload,
     });
   } catch (err) {
     console.error("Erro em /auth/login:", err);
