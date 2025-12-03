@@ -1,4 +1,4 @@
-// index.js — API Reembolso completa (com anexos) 03/12/25 - 01:34h
+// index.js — API Reembolso completa estável
 
 require("dotenv").config();
 const express = require("express");
@@ -18,10 +18,10 @@ const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const APP_BASE_URL = process.env.APP_BASE_URL || "";
 
-// ───────────── MIDDLEWARES BÁSICOS ─────────────
-
+// Middlewares
 app.use(express.json());
 
+// CORS
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
@@ -38,7 +38,7 @@ if (APP_BASE_URL) {
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin) return callback(null, true); // ex: Postman
+      if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
       return callback(new Error("Não permitido pelo CORS"), false);
     },
@@ -46,20 +46,18 @@ app.use(
   })
 );
 
-// ───────────── CONFIG DE UPLOAD (ANEXOS) ─────────────
-
+// Upload config
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination(req, file, cb) {
     cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
-    const uniqueSuffix =
-      Date.now() + "-" + Math.round(Math.random() * 1e9);
+  filename(req, file, cb) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname);
     cb(null, uniqueSuffix + ext);
   },
@@ -67,29 +65,26 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// ───────────── HEALTH & ROOT ─────────────
-
+// Health
 app.get("/health", async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     res.json({ status: "ok" });
   } catch (err) {
-    console.error("Erro no healthcheck:", err);
+    console.error("Erro no /health:", err);
     res.status(500).json({ status: "error", message: "DB indisponível" });
   }
 });
 
+// Root
 app.get("/", (req, res) => {
   res.send("API Reembolso rodando.");
 });
 
-// ───────────── AUTENTICAÇÃO ─────────────
-
+// Auth login
 app.post("/auth/login", async (req, res) => {
   try {
     const { email, login, senha } = req.body;
-
-    // O front pode mandar "email" ou "login" (email ou nome)
     const identificador = email || login;
 
     if (!identificador || !senha) {
@@ -98,13 +93,9 @@ app.post("/auth/login", async (req, res) => {
         .json({ erro: "Usuário e senha são obrigatórios." });
     }
 
-    // Procura por e-mail ou por nome
     const usuario = await prisma.usuario.findFirst({
       where: {
-        OR: [
-          { email: identificador },
-          { nome: identificador },
-        ],
+        OR: [{ email: identificador }, { nome: identificador }],
       },
     });
 
@@ -118,13 +109,13 @@ app.post("/auth/login", async (req, res) => {
     }
 
     if (!JWT_SECRET) {
-      console.error("⚠️ JWT_SECRET não definido nas variáveis de ambiente.");
+      console.error("JWT_SECRET não definido");
       return res
         .status(500)
         .json({ erro: "Erro de configuração do servidor." });
     }
 
-        const token = jwt.sign(
+    const token = jwt.sign(
       { id: usuario.id, tipo: usuario.tipo },
       JWT_SECRET,
       { expiresIn: "8h" }
@@ -152,257 +143,302 @@ app.post("/auth/login", async (req, res) => {
         user: userPayload,
       },
     });
+  } catch (err) {
+    console.error("Erro em /auth/login:", err);
+    res
+      .status(500)
+      .json({ erro: "Erro interno ao tentar fazer login." });
+  }
+});
 
-// ───────────── RESET DE SENHA ─────────────
-
-// Solicitar reset
+// Reset senha - solicitar
 app.post("/auth/reset-solicitar", async (req, res) => {
-  const { email } = req.body;
+  try {
+    const { email } = req.body;
 
-  const usuario = await prisma.usuario.findUnique({ where: { email } });
+    const usuario = await prisma.usuario.findUnique({ where: { email } });
+    if (!usuario) {
+      return res.status(400).json({ erro: "Usuário não encontrado." });
+    }
 
-  if (!usuario) {
-    return res.status(400).json({ erro: "Usuário não encontrado" });
+    const token = Math.random().toString(36).substring(2, 15);
+    const expires = new Date(Date.now() + 60 * 60 * 1000);
+
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        reset_token: token,
+        reset_token_expires: expires,
+      },
+    });
+
+    const base = APP_BASE_URL.replace(/\/$/, "");
+    const resetLink = `${base}/resetar-senha/${token}`;
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: process.env.SMTP_SECURE === "true",
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.MAIL_FROM,
+      to: usuario.email,
+      subject: "Redefinição de senha - Controle de Reembolso",
+      html: `
+        <p>Olá, ${usuario.nome}</p>
+        <p>Clique no link abaixo para redefinir sua senha:</p>
+        <p><a href="${resetLink}">${resetLink}</a></p>
+      `,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro em /auth/reset-solicitar:", err);
+    res.status(500).json({ erro: "Erro ao solicitar redefinição de senha." });
   }
-
-  const token = Math.random().toString(36).substring(2, 15);
-  const expires = new Date(Date.now() + 60 * 60 * 1000); // 1h
-
-  await prisma.usuario.update({
-    where: { id: usuario.id },
-    data: {
-      reset_token: token,
-      reset_token_expires: expires,
-    },
-  });
-
-  const resetLink = `${APP_BASE_URL.replace(/\/$/, "")}/resetar-senha/${token}`;
-
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-
-  await transporter.sendMail({
-    from: process.env.MAIL_FROM,
-    to: usuario.email,
-    subject: "Redefinição de senha - Controle de Reembolso",
-    html: `
-      <p>Olá, ${usuario.nome}</p>
-      <p>Clique no link abaixo para redefinir sua senha:</p>
-      <p><a href="${resetLink}">${resetLink}</a></p>
-    `,
-  });
-
-  res.json({ ok: true });
 });
 
-// Confirmar reset
+// Reset senha - confirmar
 app.post("/auth/reset-confirmar", async (req, res) => {
-  const { token, novaSenha } = req.body;
+  try {
+    const { token, novaSenha } = req.body;
 
-  const usuario = await prisma.usuario.findFirst({
-    where: {
-      reset_token: token,
-      reset_token_expires: { gte: new Date() },
-    },
-  });
+    const usuario = await prisma.usuario.findFirst({
+      where: {
+        reset_token: token,
+        reset_token_expires: { gte: new Date() },
+      },
+    });
 
-  if (!usuario) {
-    return res.status(400).json({ erro: "Token inválido ou expirado" });
+    if (!usuario) {
+      return res
+        .status(400)
+        .json({ erro: "Token inválido ou expirado." });
+    }
+
+    const hash = await bcrypt.hash(novaSenha, 10);
+
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        senha_hash: hash,
+        reset_token: null,
+        reset_token_expires: null,
+      },
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro em /auth/reset-confirmar:", err);
+    res.status(500).json({ erro: "Erro ao redefinir senha." });
   }
-
-  const hash = await bcrypt.hash(novaSenha, 10);
-
-  await prisma.usuario.update({
-    where: { id: usuario.id },
-    data: {
-      senha_hash: hash,
-      reset_token: null,
-      reset_token_expires: null,
-    },
-  });
-
-  res.json({ ok: true });
 });
 
-// ───────────── USUÁRIOS ─────────────
-
+// Usuário por id
 app.get("/usuarios/:id", async (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: Number(id) },
+    });
 
-  const usuario = await prisma.usuario.findUnique({
-    where: { id: Number(id) },
-  });
+    if (!usuario) {
+      return res.status(404).json({ erro: "Usuário não encontrado." });
+    }
 
-  if (!usuario) {
-    return res.status(404).json({ erro: "Usuário não encontrado" });
+    res.json(usuario);
+  } catch (err) {
+    console.error("Erro em GET /usuarios/:id:", err);
+    res.status(500).json({ erro: "Erro ao buscar usuário." });
   }
-
-  res.json(usuario);
 });
 
-// (poderiam existir mais rotas de usuários aqui
-// criar, listar todos, etc., se você quiser depois)
-
-// ───────────── SOLICITAÇÕES ─────────────
-
-// Listar solicitações de um usuário
+// Listar solicitações do usuário
 app.get("/solicitacoes/usuario/:id", async (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  const dados = await prisma.solicitacao.findMany({
-    where: { usuario_id: Number(id) },
-    include: {
-      arquivos: true,
-      statusHistory: true,
-    },
-  });
+    const dados = await prisma.solicacao.findMany({
+      where: { usuario_id: Number(id) },
+      include: {
+        arquivos: true,
+        statusHistory: true,
+      },
+    });
 
-  res.json(dados);
+    res.json(dados);
+  } catch (err) {
+    console.error("Erro em GET /solicitacoes/usuario/:id:", err);
+    res.status(500).json({ erro: "Erro ao buscar solicitações." });
+  }
 });
 
-// Criar nova solicitação
+// Criar solicitação
 app.post("/solicitacoes", async (req, res) => {
-  const dados = req.body;
+  try {
+    const dados = req.body;
 
-  const nova = await prisma.solicitacao.create({
-    data: {
-      ...dados,
-      usuario_id: Number(dados.usuario_id),
-    },
-  });
+    const nova = await prisma.solicitacao.create({
+      data: {
+        ...dados,
+        usuario_id: Number(dados.usuario_id),
+      },
+    });
 
-  res.json(nova);
+    res.json(nova);
+  } catch (err) {
+    console.error("Erro em POST /solicitacoes:", err);
+    res.status(500).json({ erro: "Erro ao criar solicitação." });
+  }
 });
 
 // Atualizar solicitação
 app.put("/solicitacoes/:id", async (req, res) => {
-  const { id } = req.params;
-  const dados = req.body;
+  try {
+    const { id } = req.params;
+    const dados = req.body;
 
-  const atualizado = await prisma.solicitacao.update({
-    where: { id: Number(id) },
-    data: dados,
-  });
+    const atualizado = await prisma.solicitacao.update({
+      where: { id: Number(id) },
+      data: dados,
+    });
 
-  res.json(atualizado);
+    res.json(atualizado);
+  } catch (err) {
+    console.error("Erro em PUT /solicitacoes/:id:", err);
+    res.status(500).json({ erro: "Erro ao atualizar solicitação." });
+  }
 });
 
-// ───────────── ANEXOS / ARQUIVOS ─────────────
-
-// Upload de um arquivo para uma solicitação
-// campo do formulário: "arquivo"
+// Upload de arquivo
 app.post(
   "/solicitacoes/:id/arquivos",
   upload.single("arquivo"),
   async (req, res) => {
-    const solicitacaoId = Number(req.params.id);
-    const { tipo } = req.body;
-    const file = req.file;
+    try {
+      const solicitacaoId = Number(req.params.id);
+      const { tipo } = req.body;
+      const file = req.file;
 
-    if (!file) {
-      return res.status(400).json({ erro: "Nenhum arquivo enviado" });
+      if (!file) {
+        return res.status(400).json({ erro: "Nenhum arquivo enviado." });
+      }
+
+      const solicitacao = await prisma.solicitacao.findUnique({
+        where: { id: solicitacaoId },
+      });
+
+      if (!solicitacao) {
+        return res
+          .status(404)
+          .json({ erro: "Solicitação não encontrada." });
+      }
+
+      const registro = await prisma.solicitacaoArquivo.create({
+        data: {
+          solicitacao_id: solicitacaoId,
+          tipo: tipo || "outro",
+          original_name: file.originalname,
+          mime_type: file.mimetype,
+          path: file.filename,
+        },
+      });
+
+      res.json(registro);
+    } catch (err) {
+      console.error("Erro em POST /solicitacoes/:id/arquivos:", err);
+      res.status(500).json({ erro: "Erro ao enviar arquivo." });
     }
-
-    // Garante que a solicitação existe
-    const solicitacao = await prisma.solicitacao.findUnique({
-      where: { id: solicitacaoId },
-    });
-
-    if (!solicitacao) {
-      return res.status(404).json({ erro: "Solicitação não encontrada" });
-    }
-
-    const registro = await prisma.solicitacaoArquivo.create({
-      data: {
-        solicitacao_id: solicitacaoId,
-        tipo: tipo || "outro",
-        original_name: file.originalname,
-        mime_type: file.mimetype,
-        path: file.filename, // só o nome; o caminho base é uploadDir
-      },
-    });
-
-    res.json(registro);
   }
 );
 
-// Listar arquivos de uma solicitação
+// Listar arquivos
 app.get("/solicitacoes/:id/arquivos", async (req, res) => {
-  const solicitacaoId = Number(req.params.id);
+  try {
+    const solicitacaoId = Number(req.params.id);
 
-  const arquivos = await prisma.solicitacaoArquivo.findMany({
-    where: { solicitacao_id: solicitacaoId },
-    orderBy: { created_at: "desc" },
-  });
+    const arquivos = await prisma.solicitacaoArquivo.findMany({
+      where: { solicitacao_id: solicitacaoId },
+      orderBy: { created_at: "desc" },
+    });
 
-  res.json(arquivos);
+    res.json(arquivos);
+  } catch (err) {
+    console.error("Erro em GET /solicitacoes/:id/arquivos:", err);
+    res.status(500).json({ erro: "Erro ao listar arquivos." });
+  }
 });
 
-// Download de um arquivo pelo id do registro
+// Download arquivo
 app.get("/arquivos/:id/download", async (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  const registro = await prisma.solicitacaoArquivo.findUnique({
-    where: { id: Number(id) },
-  });
+    const registro = await prisma.solicitacaoArquivo.findUnique({
+      where: { id: Number(id) },
+    });
 
-  if (!registro) {
-    return res.status(404).json({ erro: "Arquivo não encontrado" });
+    if (!registro) {
+      return res.status(404).json({ erro: "Arquivo não encontrado." });
+    }
+
+    const fullPath = path.join(uploadDir, registro.path);
+
+    if (!fs.existsSync(fullPath)) {
+      return res
+        .status(410)
+        .json({ erro: "Arquivo não está mais disponível no servidor." });
+    }
+
+    res.download(fullPath, registro.original_name);
+  } catch (err) {
+    console.error("Erro em GET /arquivos/:id/download:", err);
+    res.status(500).json({ erro: "Erro ao fazer download do arquivo." });
   }
-
-  const fullPath = path.join(uploadDir, registro.path);
-
-  if (!fs.existsSync(fullPath)) {
-    return res
-      .status(410)
-      .json({ erro: "Arquivo não está mais disponível no servidor" });
-  }
-
-  res.download(fullPath, registro.original_name);
 });
 
 // Remover arquivo
 app.delete("/arquivos/:id", async (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  const registro = await prisma.solicitacaoArquivo.findUnique({
-    where: { id: Number(id) },
-  });
+    const registro = await prisma.solicitacaoArquivo.findUnique({
+      where: { id: Number(id) },
+    });
 
-  if (!registro) {
-    return res.status(404).json({ erro: "Arquivo não encontrado" });
+    if (!registro) {
+      return res.status(404).json({ erro: "Arquivo não encontrado." });
+    }
+
+    const fullPath = path.join(uploadDir, registro.path);
+
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
+
+    await prisma.solicitacaoArquivo.delete({
+      where: { id: Number(id) },
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro em DELETE /arquivos/:id:", err);
+    res.status(500).json({ erro: "Erro ao remover arquivo." });
   }
-
-  const fullPath = path.join(uploadDir, registro.path);
-
-  // apaga arquivo físico (se existir)
-  if (fs.existsSync(fullPath)) {
-    fs.unlinkSync(fullPath);
-  }
-
-  await prisma.solicitacaoArquivo.delete({
-    where: { id: Number(id) },
-  });
-
-  res.json({ ok: true });
 });
 
-// ───────────── ERRO GENÉRICO ─────────────
-
+// Middleware de erro genérico
 app.use((err, req, res, next) => {
   console.error("Erro não tratado:", err);
   res.status(500).json({ error: "Erro interno do servidor" });
 });
 
-// ───────────── START SERVER ─────────────
-
+// Start
 app.listen(PORT, () => {
   console.log(`🚀 API Reembolso rodando na porta ${PORT}`);
 });
