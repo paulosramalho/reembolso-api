@@ -911,14 +911,17 @@ app.post(
 app.use('/uploads', express.static(uploadDir));
 
 // Atualizar solicitação (e registrar cada troca de status no histórico)
-app.put('/solicitacoes/:id', async (req, res) => {
+app.put('/solicitacoes/:id', authMiddleware, async (req, res) => {
   const solId = Number(req.params.id);
   if (!Number.isFinite(solId)) {
     return res.status(400).json({ error: 'ID inválido.' });
   }
 
   try {
-    // 1) Buscar registro atual
+    const { id: usuarioId, tipo } = req.user;
+    const tipoNorm = String(tipo || '').toLowerCase();
+
+    // 1) Buscar registro atual + dono
     const existingResult = await db.query(
       'SELECT * FROM solicitacoes WHERE id = $1',
       [solId]
@@ -930,7 +933,15 @@ app.put('/solicitacoes/:id', async (req, res) => {
 
     const existing = existingResult.rows[0];
 
-    // 2) Campos vindos do front
+    // 2) Se não for admin, só pode alterar o que é dele
+    const isAdmin = tipoNorm === 'admin' || tipoNorm === 'adm';
+    if (!isAdmin && existing.usuario_id !== usuarioId) {
+      return res
+        .status(403)
+        .json({ error: 'Você não tem permissão para alterar esta solicitação.' });
+    }
+
+    // 3) Campos vindos do front
     const {
       status,
       protocolo,
@@ -957,12 +968,16 @@ app.put('/solicitacoes/:id', async (req, res) => {
       return null;
     };
 
-    // 3) Composições finais
+    // 4) Composições finais
     const prevStatus = existing.status;
     const statusFinal = status ?? prevStatus;
 
     const protocoloFinal =
-      protocolo || nr_protocolo || numero_protocolo || existing.protocolo || null;
+      protocolo ||
+      nr_protocolo ||
+      numero_protocolo ||
+      existing.protocolo ||
+      null;
 
     const dataSolicFinal =
       data_solicitacao || data || existing.data_solicitacao || null;
@@ -983,7 +998,7 @@ app.put('/solicitacoes/:id', async (req, res) => {
     const valorReembolsoFinal =
       toNum(valorReembolso) ?? existing.valor_reembolso ?? null;
 
-    // 4) Update principal (AGORA com pagamento)
+    // 5) Update principal (inclui pagamento)
     const updateResult = await db.query(
       `
       UPDATE solicitacoes
@@ -1015,9 +1030,9 @@ app.put('/solicitacoes/:id', async (req, res) => {
     const mudouStatus = statusFinal !== prevStatus;
 
     let movDate =
-      statusDate || // data digitada (Kanban / modal)
-      data_solicitacao || // se vier da tela
-      new Date().toISOString().slice(0, 10); // fallback: hoje
+      statusDate ||
+      data_solicitacao ||
+      new Date().toISOString().slice(0, 10);
 
     if (mudouStatus || statusDate) {
       await db.query(
