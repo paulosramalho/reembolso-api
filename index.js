@@ -195,7 +195,7 @@ app.post("/auth/login", async (req, res) => {
       email: usuario.email,
       cpfcnpj: usuario.cpfcnpj,
       telefone: usuario.telefone,
-      tipo: usuario.tipo, // mantém como está no banco pra UI
+      tipo: usuario.tipo,
     };
 
     res.json({
@@ -287,12 +287,10 @@ app.post("/auth/esqueci-senha", async (req, res) => {
         .json({ ok: false, mensagem: "E-mail é obrigatório." });
     }
 
-    // No schema atual, email NÃO é unique => usar findFirst
     const usuario = await prisma.usuario.findFirst({
       where: { email },
     });
 
-    // Por segurança, responde ok mesmo se não achar usuário
     if (!usuario) {
       return res.json({
         ok: true,
@@ -412,8 +410,6 @@ app.post("/auth/reset-confirmar", async (req, res) => {
 // =========================
 // 🔰 USUÁRIOS
 // =========================
-
-// Obter usuário por ID
 app.get("/usuarios/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -433,7 +429,6 @@ app.get("/usuarios/:id", async (req, res) => {
   }
 });
 
-// Listar usuários
 app.get("/usuarios", async (req, res) => {
   try {
     const usuarios = await prisma.usuario.findMany({
@@ -452,20 +447,15 @@ function mapSolicitacaoComSolicitante(s) {
   const nomeSolicitante =
     s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
 
-  // Garante que pegamos sempre o array de arquivos correto
   const arquivosArray = s.arquivos || s.solicitacao_arquivos || [];
 
   return {
     ...s,
     solicitante_nome: nomeSolicitante,
     solicitante: nomeSolicitante,
-
-    // aliases para anexos
     solicitacao_arquivos: arquivosArray,
     arquivos: arquivosArray,
     documentos: arquivosArray,
-
-    // aliases para quantidade de docs (usado na coluna DOCS)
     docs: arquivosArray.length,
     docs_count: arquivosArray.length,
     documentos_count: arquivosArray.length,
@@ -473,7 +463,7 @@ function mapSolicitacaoComSolicitante(s) {
 }
 
 // =========================
-// 🔰 USUÁRIOS — CRIAR (CONFIGURAÇÕES)
+// 🔰 USUÁRIOS — CRUD (Configurações)
 // =========================
 app.post("/usuarios", authMiddleware, adminOnly, async (req, res) => {
   try {
@@ -485,9 +475,7 @@ app.post("/usuarios", authMiddleware, adminOnly, async (req, res) => {
         .json({ erro: "Nome, e-mail e senha são obrigatórios." });
     }
 
-    const existente = await prisma.usuario.findFirst({
-      where: { email },
-    });
+    const existente = await prisma.usuario.findFirst({ where: { email } });
 
     if (existente) {
       return res
@@ -517,9 +505,6 @@ app.post("/usuarios", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 USUÁRIOS — ATUALIZAR (CONFIGURAÇÕES)
-// =========================
 app.put("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
@@ -551,9 +536,6 @@ app.put("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 USUÁRIOS — EXCLUIR (CONFIGURAÇÕES)
-// =========================
 app.delete("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
@@ -578,8 +560,6 @@ app.delete("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
 // =========================
 // 🔰 DESCRIÇÕES DE DESPESAS
 // =========================
-
-// LISTAR (todos usuários)
 app.get("/descricoes", async (req, res) => {
   try {
     const descricoes = await prisma.$queryRaw`
@@ -588,7 +568,6 @@ app.get("/descricoes", async (req, res) => {
       WHERE ativo = true
       ORDER BY descricao;
     `;
-
     res.json(descricoes);
   } catch (err) {
     console.error("Erro em GET /descricoes:", err);
@@ -596,7 +575,6 @@ app.get("/descricoes", async (req, res) => {
   }
 });
 
-// CRIAR (Configurações)
 app.post("/descricoes", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { descricao, ativo } = req.body;
@@ -620,7 +598,6 @@ app.post("/descricoes", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// ATUALIZAR (Configurações)
 app.put("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
@@ -646,7 +623,6 @@ app.put("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// EXCLUIR (Configurações)
 app.delete("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
@@ -665,8 +641,6 @@ app.delete("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
 // =========================
 // 🔰 STATUS
 // =========================
-
-// CRIAR (Configurações)
 app.post("/status", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { nome, descricao, ativo } = req.body;
@@ -692,7 +666,6 @@ app.post("/status", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// LISTAR (todos autenticados — usado em Nova Solicitação, Kanban, etc.)
 app.get("/status", authMiddleware, async (req, res) => {
   try {
     const lista = await prisma.status.findMany({
@@ -705,7 +678,6 @@ app.get("/status", authMiddleware, async (req, res) => {
   }
 });
 
-// ATUALIZAR (Configurações)
 app.put("/status/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
@@ -729,7 +701,7 @@ app.put("/status/:id", authMiddleware, adminOnly, async (req, res) => {
 });
 
 // =========================
-// 🔰 SOLICITAÇÕES — LISTAR POR USUÁRIO (Solicitante real)
+// 🔰 SOLICITAÇÕES — LISTAR
 // =========================
 app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
   try {
@@ -759,9 +731,6 @@ app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 SOLICITAÇÕES — LISTA GERAL (ADMIN)
-// =========================
 app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
   try {
     const registros = await prisma.solicitacao.findMany({
@@ -782,7 +751,9 @@ app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// Helper: normalizar números (valor_nf, valor, valor_reembolso)
+// =========================
+// 🔰 HELPERS — NÚMEROS E DATAS
+// =========================
 function normalizarNumero(valor) {
   if (valor === null || valor === undefined || valor === "") return null;
   if (typeof valor === "number") return valor;
@@ -813,7 +784,6 @@ const CAMPOS_SOLICITACAO_PERMITIDOS = [
 
 const CAMPOS_NUMERICOS = ["valor_nf", "valor", "valor_reembolso"];
 
-// Campos de data que precisam ir como Date/DateTime para o Prisma
 const CAMPOS_DATA = [
   "data_nf",
   "data_solicitacao",
@@ -827,7 +797,6 @@ function normalizarData(valor) {
 
   const s = String(valor).trim();
 
-  // Se vier só como "YYYY-MM-DD" (como no seu log), completa com T00:00:00Z
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
     const d = new Date(s + "T00:00:00.000Z");
     if (isNaN(d.getTime())) return null;
@@ -840,7 +809,7 @@ function normalizarData(valor) {
 }
 
 // =========================
-// 🔰 CRIAR SOLICITAÇÃO
+// 🔰 SOLICITAÇÕES — CRIAR / ATUALIZAR
 // =========================
 app.post("/solicitacoes", authMiddleware, async (req, res) => {
   try {
@@ -866,7 +835,6 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
       let valor = dados[campo];
 
       if (valor === undefined || valor === "") continue;
-
       if (campo === "usuario_id") continue;
 
       if (CAMPOS_NUMERICOS.includes(campo)) {
@@ -901,9 +869,6 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 ATUALIZAR SOLICITAÇÃO
-// =========================
 app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
@@ -978,7 +943,7 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
 });
 
 // =========================
-// 🔰 UPLOAD DE ARQUIVOS
+// 🔰 ARQUIVOS (UPLOAD / LISTAGEM / DOWNLOAD / DELETE)
 // =========================
 app.post(
   "/solicitacoes/:id/arquivos",
@@ -1028,15 +993,14 @@ app.post(
   }
 );
 
-// =========================
-// 🔰 LISTAR ARQUIVOS
-// =========================
+// 🔎 LISTAR ARQUIVOS (USANDO RELAÇÃO `arquivos`)
 app.get("/solicitacoes/:id/arquivos", authMiddleware, async (req, res) => {
   try {
     const solicitacaoId = Number(req.params.id);
 
     const solicitacao = await prisma.solicitacao.findUnique({
       where: { id: solicitacaoId },
+      include: { arquivos: true },
     });
 
     if (!solicitacao) {
@@ -1049,11 +1013,7 @@ app.get("/solicitacoes/:id/arquivos", authMiddleware, async (req, res) => {
       });
     }
 
-    const arquivos = await prisma.solicitacao_arquivos.findMany({
-      where: { solicitacao_id: solicitacaoId },
-      orderBy: { created_at: "desc" },
-    });
-
+    const arquivos = solicitacao.arquivos || [];
     res.json(arquivos);
   } catch (err) {
     console.error("Erro em GET /solicitacoes/:id/arquivos:", err);
@@ -1061,9 +1021,6 @@ app.get("/solicitacoes/:id/arquivos", authMiddleware, async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 DOWNLOAD ARQUIVO
-// =========================
 app.get("/arquivos/:id/download", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
@@ -1105,9 +1062,6 @@ app.get("/arquivos/:id/download", authMiddleware, async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 REMOVER ARQUIVO
-// =========================
 app.delete("/arquivos/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
@@ -1152,7 +1106,7 @@ app.delete("/arquivos/:id", authMiddleware, async (req, res) => {
 });
 
 // =========================
-// 🔰 HISTÓRICO DE STATUS (POR SOLICITAÇÃO) — AGORA “ESCONDIDO” NO MODAL
+// 🔰 HISTÓRICO DE STATUS (por solicitação / global)
 // =========================
 app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
   try {
@@ -1173,8 +1127,7 @@ app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
       });
     }
 
-    // ✅ Como você já tem uma página própria de Histórico,
-    // aqui devolvemos SEMPRE lista vazia, para o modal não mostrar mais "* Em análise - -"
+    // Modal de edição não vai mais listar histórico (você já tem página própria):
     return res.json([]);
   } catch (err) {
     console.error("Erro em GET /solicitacoes/:id/historico:", err);
@@ -1182,9 +1135,6 @@ app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 ATUALIZAR STATUS DA SOLICITAÇÃO (com histórico) — ADMIN
-// =========================
 app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
@@ -1228,7 +1178,7 @@ app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) 
 });
 
 // =========================
-// 🔰 KANBAN (DINÂMICO — baseado na tabela STATUS) — ADMIN
+// 🔰 KANBAN, DASHBOARD, HISTÓRICO GLOBAL, RELATÓRIOS, ESTRUTURA
 // =========================
 app.get("/kanban", authMiddleware, adminOnly, async (req, res) => {
   try {
@@ -1265,9 +1215,6 @@ app.get("/kanban", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 DASHBOARD (VERSÃO 3 — igual ao layout atual) — ADMIN
-// =========================
 app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
   try {
     const totalSolicitacoes = await prisma.solicitacao.count();
@@ -1305,9 +1252,6 @@ app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 HISTÓRICO GLOBAL DAS SOLICITAÇÕES (ADMIN)
-// =========================
 app.get("/historico", authMiddleware, adminOnly, async (req, res) => {
   try {
     const lista = await prisma.solicitacao_status_history.findMany({
@@ -1321,9 +1265,6 @@ app.get("/historico", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 RELATÓRIOS — IRPF (ADMIN)
-// =========================
 app.get("/relatorios/irpf", authMiddleware, adminOnly, async (req, res) => {
   try {
     const dados = await prisma.solicitacao.findMany({
@@ -1356,9 +1297,6 @@ app.get("/relatorios/irpf", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 GERAR ESTRUTURA DO BANCO (TXT DINÂMICO) — ADMIN
-// =========================
 app.get("/config/estrutura-banco", authMiddleware, adminOnly, async (req, res) => {
   try {
     const result = await prisma.$queryRawUnsafe(`
