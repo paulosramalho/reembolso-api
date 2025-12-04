@@ -282,68 +282,94 @@ app.post("/auth/esqueci-senha", async (req, res) => {
   try {
     const { email } = req.body;
 
-    const usuario = await prisma.usuario.findFirst({
-  where: { email },
-});
-    if (!usuario) {
+    if (!email) {
       return res
         .status(400)
-        .json({ ok: false, mensagem: "Usuário não encontrado." });
+        .json({ ok: false, mensagem: "E-mail é obrigatório." });
+    }
+
+    // 👉 NO PRISMA, email NÃO é unique → usar findFirst
+    const usuario = await prisma.usuario.findFirst({
+      where: { email },
+    });
+
+    // Por segurança, responde ok mesmo se não achar ninguém
+    if (!usuario) {
+      return res.json({
+        ok: true,
+        emailEnviado: false,
+      });
     }
 
     const token = Math.random().toString(36).substring(2, 15);
-    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1h
 
     await prisma.usuario.update({
       where: { id: usuario.id },
       data: {
         reset_token: token,
-        reset_token_expires: expires,
+        // Se depois quisermos controlar expiração, reativamos reset_token_expires
+        // reset_token_expires: new Date(Date.now() + 60 * 60 * 1000),
       },
     });
 
     const base = (APP_BASE_URL || "").replace(/\/$/, "");
-    const resetLink = `${base || "https://controle-de-reembolso.vercel.app"}/resetar-senha/${token}`;
+    const resetLink = `${
+      base || "https://controle-de-reembolso.vercel.app"
+    }/resetar-senha/${token}`;
 
     let emailEnviado = false;
-let erroEnvio = null;
 
-if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-  try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_SECURE === "true",
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
+    if (
+      process.env.SMTP_HOST &&
+      process.env.SMTP_USER &&
+      process.env.SMTP_PASS
+    ) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: Number(process.env.SMTP_PORT) || 587,
+          secure: process.env.SMTP_SECURE === "true",
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+        });
+
+        await transporter.sendMail({
+          from: process.env.MAIL_FROM || process.env.SMTP_USER,
+          to: usuario.email,
+          subject: "Redefinição de senha - Controle de Reembolso",
+          html: `
+            <p>Olá, ${usuario.nome}</p>
+            <p>Clique no link abaixo para redefinir sua senha:</p>
+            <p><a href="${resetLink}">${resetLink}</a></p>
+          `,
+        });
+
+        emailEnviado = true;
+      } catch (errMail) {
+        console.error("⚠ Erro ao enviar e-mail de redefinição:", errMail);
+      }
+    } else {
+      console.warn(
+        "⚠ SMTP não configurado. E-mail de reset NÃO enviado (HOST/USER/PASS ausentes)."
+      );
+    }
+
+    // Mesmo que o e-mail falhe, o token foi gerado e salvo
+    res.json({ ok: true, emailEnviado });
+  } catch (err) {
+    console.error("Erro em /auth/esqueci-senha:", err);
+    res.status(500).json({
+      ok: false,
+      mensagem: "Erro ao solicitar redefinição de senha.",
     });
-
-    await transporter.sendMail({
-      from: process.env.MAIL_FROM || process.env.SMTP_USER,
-      to: usuario.email,
-      subject: "Redefinição de senha - Controle de Reembolso",
-      html: `
-        <p>Olá, ${usuario.nome}</p>
-        <p>Clique no link abaixo para redefinir sua senha:</p>
-        <p><a href="${resetLink}">${resetLink}</a></p>
-      `,
-    });
-
-    emailEnviado = true;
-  } catch (errMail) {
-    console.error("⚠ Erro ao enviar e-mail de redefinição:", errMail);
-    erroEnvio = String(errMail && errMail.message ? errMail.message : errMail);
   }
-} else {
-  console.warn("⚠ SMTP não configurado. E-mail de reset NÃO enviado.");
-  erroEnvio = "SMTP não configurado (HOST/USER/PASS ausentes)";
-}
+});
 
-// Mesmo que o e-mail falhe, o token foi gerado e salvo
-res.json({ ok: true, emailEnviado, erroEnvio });
-
+// =========================
+// 🔰 AUTH — RESET SENHA (CONFIRMAR)
+// =========================
 // =========================
 // 🔰 AUTH — RESET SENHA (CONFIRMAR)
 // =========================
@@ -351,15 +377,21 @@ app.post("/auth/reset-confirmar", async (req, res) => {
   try {
     const { token, novaSenha } = req.body;
 
+    if (!token || !novaSenha) {
+      return res
+        .status(400)
+        .json({ erro: "Token e nova senha são obrigatórios." });
+    }
+
     const usuario = await prisma.usuario.findFirst({
       where: {
         reset_token: token,
-        reset_token_expires: { gte: new Date() },
+        // Se quiser voltar a expiração depois, reativa reset_token_expires aqui.
       },
     });
 
     if (!usuario) {
-      return res.status(400).json({ erro: "Token inválido ou expirado." });
+      return res.status(400).json({ erro: "Token inválido." });
     }
 
     const hash = await bcrypt.hash(novaSenha, 10);
@@ -369,7 +401,7 @@ app.post("/auth/reset-confirmar", async (req, res) => {
       data: {
         senha_hash: hash,
         reset_token: null,
-        reset_token_expires: null,
+        // reset_token_expires: null,
       },
     });
 
