@@ -474,6 +474,111 @@ function mapSolicitacaoComSolicitante(s) {
 }
 
 // =========================
+// 🔰 USUÁRIOS — CRIAR (CONFIGURAÇÕES)
+// =========================
+app.post("/usuarios", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { nome, email, senha, tipo, ativo, cpfcnpj, telefone } = req.body;
+
+    if (!nome || !email || !senha) {
+      return res
+        .status(400)
+        .json({ erro: "Nome, e-mail e senha são obrigatórios." });
+    }
+
+    // Evita duplicar e-mail
+    const existente = await prisma.usuario.findFirst({
+      where: { email },
+    });
+
+    if (existente) {
+      return res
+        .status(400)
+        .json({ erro: "Já existe um usuário cadastrado com esse e-mail." });
+    }
+
+    const hash = await bcrypt.hash(senha, 10);
+
+    const novo = await prisma.usuario.create({
+      data: {
+        nome: String(nome).trim(),
+        email: String(email).trim(),
+        senha_hash: hash,
+        tipo: tipo || "user", // no banco default é 'user'
+        ativo: ativo !== undefined ? !!ativo : true,
+        cpfcnpj: cpfcnpj || null,
+        telefone: telefone || null,
+        primeiro_acesso: true,
+      },
+    });
+
+    res.json(novo);
+  } catch (err) {
+    console.error("Erro em POST /usuarios:", err);
+    res.status(500).json({ erro: "Erro ao salvar usuário." });
+  }
+});
+
+// =========================
+// 🔰 USUÁRIOS — ATUALIZAR (CONFIGURAÇÕES)
+// =========================
+app.put("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nome, email, senha, tipo, ativo, cpfcnpj, telefone } = req.body;
+
+    const data = {};
+
+    if (nome !== undefined) data.nome = String(nome).trim();
+    if (email !== undefined) data.email = String(email).trim();
+    if (tipo !== undefined) data.tipo = tipo;
+    if (ativo !== undefined) data.ativo = !!ativo;
+    if (cpfcnpj !== undefined) data.cpfcnpj = cpfcnpj || null;
+    if (telefone !== undefined) data.telefone = telefone || null;
+
+    if (senha) {
+      data.senha_hash = await bcrypt.hash(senha, 10);
+      data.primeiro_acesso = false;
+    }
+
+    const atualizado = await prisma.usuario.update({
+      where: { id: Number(id) },
+      data,
+    });
+
+    res.json(atualizado);
+  } catch (err) {
+    console.error("Erro em PUT /usuarios/:id:", err);
+    res.status(500).json({ erro: "Erro ao salvar usuário." });
+  }
+});
+
+// =========================
+// 🔰 USUÁRIOS — EXCLUIR (CONFIGURAÇÕES)
+// =========================
+app.delete("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Opcional: impedir que o admin delete a si mesmo
+    if (req.user && req.user.id === Number(id)) {
+      return res
+        .status(400)
+        .json({ erro: "Você não pode excluir o próprio usuário logado." });
+    }
+
+    await prisma.usuario.delete({
+      where: { id: Number(id) },
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro em DELETE /usuarios/:id:", err);
+    res.status(500).json({ erro: "Erro ao excluir usuário." });
+  }
+});
+
+// =========================
 // 🔰 DESCRIÇÕES DE DESPESAS
 // =========================
 app.get("/descricoes", async (req, res) => {
@@ -694,12 +799,23 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
     const dataAtualizar = {};
 
     for (const campo of camposPermitidos) {
-      if (Object.prototype.hasOwnProperty.call(dados, campo)) {
-        const valor = dados[campo];
-        if (valor !== undefined) {
-          dataAtualizar[campo] = valor;
+      if (!Object.prototype.hasOwnProperty.call(dados, campo)) continue;
+
+      let valor = dados[campo];
+
+      // Não mexe com undefined
+      if (valor === undefined) continue;
+
+      // Tratamento específico para usuario_id
+      if (campo === "usuario_id") {
+        const idNum = Number(valor);
+        if (!Number.isNaN(idNum) && idNum > 0) {
+          dataAtualizar.usuario_id = idNum;
         }
+        continue;
       }
+
+      dataAtualizar[campo] = valor;
     }
 
     // Se está alterando status, atualiza também data_ultima_mudanca
