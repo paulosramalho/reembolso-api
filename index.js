@@ -288,12 +288,12 @@ app.post("/auth/esqueci-senha", async (req, res) => {
         .json({ ok: false, mensagem: "E-mail é obrigatório." });
     }
 
-    // 👉 NO PRISMA, email NÃO é unique → usar findFirst
+    // No schema atual, email NÃO é unique => usar findFirst
     const usuario = await prisma.usuario.findFirst({
       where: { email },
     });
 
-    // Por segurança, responde ok mesmo se não achar ninguém
+    // Por segurança, responde ok mesmo se não achar usuário
     if (!usuario) {
       return res.json({
         ok: true,
@@ -307,7 +307,7 @@ app.post("/auth/esqueci-senha", async (req, res) => {
       where: { id: usuario.id },
       data: {
         reset_token: token,
-        // Se depois quisermos controlar expiração, reativamos reset_token_expires
+        // Se depois quiser voltar com expiração, reativamos essa linha:
         // reset_token_expires: new Date(Date.now() + 60 * 60 * 1000),
       },
     });
@@ -319,6 +319,7 @@ app.post("/auth/esqueci-senha", async (req, res) => {
 
     let emailEnviado = false;
 
+    // Mesmo que SMTP esteja configurado, qualquer erro aqui NÃO pode derrubar a rota
     if (
       process.env.SMTP_HOST &&
       process.env.SMTP_USER &&
@@ -333,6 +334,10 @@ app.post("/auth/esqueci-senha", async (req, res) => {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
           },
+          // timeouts curtos pra não travar demais
+          connectionTimeout: 5000,
+          greetingTimeout: 5000,
+          socketTimeout: 5000,
         });
 
         await transporter.sendMail({
@@ -349,19 +354,25 @@ app.post("/auth/esqueci-senha", async (req, res) => {
         emailEnviado = true;
       } catch (errMail) {
         console.error("⚠ Erro ao enviar e-mail de redefinição:", errMail);
+        // Aqui a gente NÃO relança o erro. Só loga.
+        // Opcional: logar o link pra você usar manualmente em dev
+        console.log("🔗 Link de redefinição gerado:", resetLink);
       }
     } else {
       console.warn(
         "⚠ SMTP não configurado. E-mail de reset NÃO enviado (HOST/USER/PASS ausentes)."
       );
+      console.log("🔗 Link de redefinição gerado:", resetLink);
     }
 
-    // Mesmo que o e-mail falhe, o token foi gerado e salvo
-    res.json({ ok: true, emailEnviado });
+    // Mesmo que o e-mail falhe, token foi gerado e salvo
+    return res.json({ ok: true, emailEnviado });
   } catch (err) {
     console.error("Erro em /auth/esqueci-senha:", err);
-    res.status(500).json({
+    // Aqui, pra não quebrar o fluxo do front, eu devolvo 200 também:
+    return res.status(200).json({
       ok: false,
+      emailEnviado: false,
       mensagem: "Erro ao solicitar redefinição de senha.",
     });
   }
