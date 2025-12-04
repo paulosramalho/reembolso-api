@@ -306,50 +306,43 @@ app.post("/auth/esqueci-senha", async (req, res) => {
     const resetLink = `${base || "https://controle-de-reembolso.vercel.app"}/resetar-senha/${token}`;
 
     let emailEnviado = false;
+let erroEnvio = null;
 
-    // Só tenta mandar e-mail se SMTP estiver configurado
-    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: Number(process.env.SMTP_PORT) || 587,
-          secure: process.env.SMTP_SECURE === "true",
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-          },
-        });
+if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_SECURE === "true",
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
 
-        await transporter.sendMail({
-          from: process.env.MAIL_FROM || process.env.SMTP_USER,
-          to: usuario.email,
-          subject: "Redefinição de senha - Controle de Reembolso",
-          html: `
-            <p>Olá, ${usuario.nome}</p>
-            <p>Clique no link abaixo para redefinir sua senha:</p>
-            <p><a href="${resetLink}">${resetLink}</a></p>
-          `,
-        });
+    await transporter.sendMail({
+      from: process.env.MAIL_FROM || process.env.SMTP_USER,
+      to: usuario.email,
+      subject: "Redefinição de senha - Controle de Reembolso",
+      html: `
+        <p>Olá, ${usuario.nome}</p>
+        <p>Clique no link abaixo para redefinir sua senha:</p>
+        <p><a href="${resetLink}">${resetLink}</a></p>
+      `,
+    });
 
-        emailEnviado = true;
-      } catch (errMail) {
-        console.error("⚠ Erro ao enviar e-mail de redefinição:", errMail);
-      }
-    } else {
-      console.warn(
-        "⚠ SMTP não configurado. E-mail de reset NÃO enviado. Configure SMTP_HOST, SMTP_USER e SMTP_PASS."
-      );
-    }
-
-    // Mesmo que o e-mail falhe, o token foi gerado e salvo
-    res.json({ ok: true, emailEnviado });
-  } catch (err) {
-    console.error("Erro em /auth/esqueci-senha:", err);
-    res
-      .status(500)
-      .json({ ok: false, mensagem: "Erro ao solicitar redefinição de senha." });
+    emailEnviado = true;
+  } catch (errMail) {
+    console.error("⚠ Erro ao enviar e-mail de redefinição:", errMail);
+    erroEnvio = String(errMail && errMail.message ? errMail.message : errMail);
   }
-});
+} else {
+  console.warn("⚠ SMTP não configurado. E-mail de reset NÃO enviado.");
+  erroEnvio = "SMTP não configurado (HOST/USER/PASS ausentes)";
+}
+
+// Mesmo que o e-mail falhe, o token foi gerado e salvo
+res.json({ ok: true, emailEnviado, erroEnvio });
 
 // =========================
 // 🔰 AUTH — RESET SENHA (CONFIRMAR)
