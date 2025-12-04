@@ -1,4 +1,4 @@
-// index.js — API Reembolso COMPLETA e ATUALIZADA 03/12/25 - 16:08h
+// index.js — API Reembolso COMPLETA e ATUALIZADA 04/12/25
 // Compatível com o schema/prisma atual e com o front (forma da resposta do login).
 
 // =========================
@@ -27,7 +27,6 @@ console.log("🔧 SMTP DEBUG:", {
   user: process.env.SMTP_USER,
   hasPass: !!process.env.SMTP_PASS,
 });
-
 
 // =========================
 // 🔰 MIDDLEWARES
@@ -229,8 +228,8 @@ app.post("/auth/reset-solicitar", async (req, res) => {
     const { email } = req.body;
 
     const usuario = await prisma.usuario.findFirst({
-  where: { email },
-});
+      where: { email },
+    });
     if (!usuario) {
       return res.status(400).json({ erro: "Usuário não encontrado." });
     }
@@ -307,8 +306,6 @@ app.post("/auth/esqueci-senha", async (req, res) => {
       where: { id: usuario.id },
       data: {
         reset_token: token,
-        // Se depois quiser voltar com expiração, reativamos essa linha:
-        // reset_token_expires: new Date(Date.now() + 60 * 60 * 1000),
       },
     });
 
@@ -319,7 +316,6 @@ app.post("/auth/esqueci-senha", async (req, res) => {
 
     let emailEnviado = false;
 
-    // Mesmo que SMTP esteja configurado, qualquer erro aqui NÃO pode derrubar a rota
     if (
       process.env.SMTP_HOST &&
       process.env.SMTP_USER &&
@@ -334,7 +330,6 @@ app.post("/auth/esqueci-senha", async (req, res) => {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
           },
-          // timeouts curtos pra não travar demais
           connectionTimeout: 5000,
           greetingTimeout: 5000,
           socketTimeout: 5000,
@@ -354,8 +349,6 @@ app.post("/auth/esqueci-senha", async (req, res) => {
         emailEnviado = true;
       } catch (errMail) {
         console.error("⚠ Erro ao enviar e-mail de redefinição:", errMail);
-        // Aqui a gente NÃO relança o erro. Só loga.
-        // Opcional: logar o link pra você usar manualmente em dev
         console.log("🔗 Link de redefinição gerado:", resetLink);
       }
     } else {
@@ -365,11 +358,9 @@ app.post("/auth/esqueci-senha", async (req, res) => {
       console.log("🔗 Link de redefinição gerado:", resetLink);
     }
 
-    // Mesmo que o e-mail falhe, token foi gerado e salvo
     return res.json({ ok: true, emailEnviado });
   } catch (err) {
     console.error("Erro em /auth/esqueci-senha:", err);
-    // Aqui, pra não quebrar o fluxo do front, eu devolvo 200 também:
     return res.status(200).json({
       ok: false,
       emailEnviado: false,
@@ -378,9 +369,6 @@ app.post("/auth/esqueci-senha", async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 AUTH — RESET SENHA (CONFIRMAR)
-// =========================
 // =========================
 // 🔰 AUTH — RESET SENHA (CONFIRMAR)
 // =========================
@@ -397,7 +385,6 @@ app.post("/auth/reset-confirmar", async (req, res) => {
     const usuario = await prisma.usuario.findFirst({
       where: {
         reset_token: token,
-        // Se quiser voltar a expiração depois, reativa reset_token_expires aqui.
       },
     });
 
@@ -412,7 +399,6 @@ app.post("/auth/reset-confirmar", async (req, res) => {
       data: {
         senha_hash: hash,
         reset_token: null,
-        // reset_token_expires: null,
       },
     });
 
@@ -461,15 +447,19 @@ app.get("/usuarios", async (req, res) => {
   }
 });
 
+// Helper p/ mapear solicitante e anexos
 function mapSolicitacaoComSolicitante(s) {
   const nomeSolicitante =
     s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
+
+  const arquivos = s.solicitacao_arquivos || s.arquivos || [];
 
   return {
     ...s,
     solicitante_nome: nomeSolicitante,
     solicitante: nomeSolicitante,
-    solicitacao_arquivos: s.arquivos || s.solicitacao_arquivos || [],
+    solicitacao_arquivos: arquivos,
+    arquivos, // alias p/ telas que leem "arquivos"
   };
 }
 
@@ -486,7 +476,6 @@ app.post("/usuarios", authMiddleware, adminOnly, async (req, res) => {
         .json({ erro: "Nome, e-mail e senha são obrigatórios." });
     }
 
-    // Evita duplicar e-mail
     const existente = await prisma.usuario.findFirst({
       where: { email },
     });
@@ -504,7 +493,7 @@ app.post("/usuarios", authMiddleware, adminOnly, async (req, res) => {
         nome: String(nome).trim(),
         email: String(email).trim(),
         senha_hash: hash,
-        tipo: tipo || "user", // no banco default é 'user'
+        tipo: tipo || "user",
         ativo: ativo !== undefined ? !!ativo : true,
         cpfcnpj: cpfcnpj || null,
         telefone: telefone || null,
@@ -560,7 +549,6 @@ app.delete("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Opcional: impedir que o admin delete a si mesmo
     if (req.user && req.user.id === Number(id)) {
       return res
         .status(400)
@@ -581,6 +569,8 @@ app.delete("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
 // =========================
 // 🔰 DESCRIÇÕES DE DESPESAS
 // =========================
+
+// LISTAR (todos usuários)
 app.get("/descricoes", async (req, res) => {
   try {
     const descricoes = await prisma.$queryRaw`
@@ -597,12 +587,77 @@ app.get("/descricoes", async (req, res) => {
   }
 });
 
+// CRIAR (Configurações)
+app.post("/descricoes", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { descricao, ativo } = req.body;
+
+    if (!descricao || !String(descricao).trim()) {
+      return res
+        .status(400)
+        .json({ erro: "Descrição da despesa é obrigatória." });
+    }
+
+    const [novo] = await prisma.$queryRaw`
+      INSERT INTO descricoes (descricao, ativo)
+      VALUES (${String(descricao).trim()}, ${ativo !== undefined ? !!ativo : true})
+      RETURNING id, descricao, ativo;
+    `;
+
+    res.json(novo);
+  } catch (err) {
+    console.error("Erro em POST /descricoes:", err);
+    res.status(500).json({ erro: "Erro ao salvar descrição." });
+  }
+});
+
+// ATUALIZAR (Configurações)
+app.put("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { descricao, ativo } = req.body;
+
+    const [atualizado] = await prisma.$queryRaw`
+      UPDATE descricoes
+      SET
+        descricao = COALESCE(${descricao !== undefined ? String(descricao).trim() : null}, descricao),
+        ativo = COALESCE(${ativo !== undefined ? !!ativo : null}, ativo)
+      WHERE id = ${Number(id)}
+      RETURNING id, descricao, ativo;
+    `;
+
+    if (!atualizado) {
+      return res.status(404).json({ erro: "Descrição não encontrada." });
+    }
+
+    res.json(atualizado);
+  } catch (err) {
+    console.error("Erro em PUT /descricoes/:id:", err);
+    res.status(500).json({ erro: "Erro ao atualizar descrição." });
+  }
+});
+
+// EXCLUIR (Configurações)
+app.delete("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.$executeRaw`
+      DELETE FROM descricoes WHERE id = ${Number(id)};
+    `;
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro em DELETE /descricoes/:id:", err);
+    res.status(500).json({ erro: "Erro ao excluir descrição." });
+  }
+});
+
 // =========================
 // 🔰 STATUS
 // =========================
-// =========================
-// 🔰 STATUS — CRIAR
-// =========================
+
+// CRIAR (Configurações)
 app.post("/status", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { nome, descricao, ativo } = req.body;
@@ -628,10 +683,8 @@ app.post("/status", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 STATUS — LISTAR (CONFIGURAÇÕES)
-// =========================
-app.get("/status", authMiddleware, adminOnly, async (req, res) => {
+// LISTAR (todos autenticados — usado em Nova Solicitação, Kanban, etc.)
+app.get("/status", authMiddleware, async (req, res) => {
   try {
     const lista = await prisma.status.findMany({
       orderBy: { id: "asc" },
@@ -643,9 +696,7 @@ app.get("/status", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// =========================
-// 🔰 STATUS — ATUALIZAR
-// =========================
+// ATUALIZAR (Configurações)
 app.put("/status/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
@@ -722,6 +773,37 @@ app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
+// Helper: normalizar números (valor_nf, valor, valor_reembolso)
+function normalizarNumero(valor) {
+  if (valor === null || valor === undefined || valor === "") return null;
+  if (typeof valor === "number") return valor;
+  const limpo = String(valor).replace(/\./g, "").replace(",", ".");
+  const num = Number(limpo);
+  return Number.isNaN(num) ? null : num;
+}
+
+const CAMPOS_SOLICITACAO_PERMITIDOS = [
+  "usuario_id",
+  "solicitante_nome",
+  "beneficiario_nome",
+  "beneficiario_doc",
+  "numero_nf",
+  "data_nf",
+  "valor_nf",
+  "emitente_nome",
+  "emitente_doc",
+  "status",
+  "data_solicitacao",
+  "data_ultima_mudanca",
+  "protocolo",
+  "valor",
+  "descricao",
+  "data_pagamento",
+  "valor_reembolso",
+];
+
+const CAMPOS_NUMERICOS = ["valor_nf", "valor", "valor_reembolso"];
+
 // =========================
 // 🔰 CRIAR SOLICITAÇÃO
 // =========================
@@ -729,50 +811,39 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
   try {
     const dados = req.body;
 
-    // Tenta pegar o solicitante do body; se vier ruim, usa o próprio usuário logado
     let usuarioIdSolicitante = Number(dados.usuario_id || req.user.id);
     if (Number.isNaN(usuarioIdSolicitante) || usuarioIdSolicitante <= 0) {
       usuarioIdSolicitante = req.user.id;
     }
 
-    // usuario_id = solicitante REAL.
     if (req.user.tipo !== "admin" && req.user.id !== usuarioIdSolicitante) {
       return res.status(403).json({
         erro: "Usuário não autorizado a criar solicitação para outro solicitante.",
       });
     }
 
-    // Campos realmente existentes no model Solicitacao
-    const camposPermitidos = [
-      "solicitante_nome",
-      "beneficiario_nome",
-      "beneficiario_doc",
-      "numero_nf",
-      "data_nf",
-      "valor_nf",
-      "emitente_nome",
-      "emitente_doc",
-      "status",
-      "data_solicitacao",
-      "protocolo",
-      "valor",
-      "descricao",
-      "data_pagamento",
-      "valor_reembolso",
-    ];
-
     const dataCriar = {
       usuario_id: usuarioIdSolicitante,
     };
 
-    for (const campo of camposPermitidos) {
+    for (const campo of CAMPOS_SOLICITACAO_PERMITIDOS) {
       if (!Object.prototype.hasOwnProperty.call(dados, campo)) continue;
-      const valor = dados[campo];
-      if (valor === undefined) continue;
+      let valor = dados[campo];
+
+      if (valor === undefined || valor === "") continue;
+
+      if (campo === "usuario_id") continue;
+
+      if (CAMPOS_NUMERICOS.includes(campo)) {
+        const num = normalizarNumero(valor);
+        if (num === null) continue;
+        dataCriar[campo] = num;
+        continue;
+      }
+
       dataCriar[campo] = valor;
     }
 
-    // Se não veio status, garante um default
     if (!dataCriar.status) {
       dataCriar.status = dados.status || "Em análise";
     }
@@ -805,45 +876,20 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       return res.status(404).json({ erro: "Solicitação não encontrada." });
     }
 
-    // Se não for admin, só pode atualizar se for o solicitante
     if (req.user.tipo !== "admin" && existente.usuario_id !== req.user.id) {
       return res.status(403).json({
         erro: "Usuário não autorizado a alterar esta solicitação.",
       });
     }
 
-    // Campos realmente existentes no model Solicitacao
-    const camposPermitidos = [
-      "usuario_id",
-      "solicitante_nome",
-      "beneficiario_nome",
-      "beneficiario_doc",
-      "numero_nf",
-      "data_nf",
-      "valor_nf",
-      "emitente_nome",
-      "emitente_doc",
-      "status",
-      "data_solicitacao",
-      "data_ultima_mudanca",
-      "protocolo",
-      "valor",
-      "descricao",
-      "data_pagamento",
-      "valor_reembolso",
-    ];
-
     const dataAtualizar = {};
 
-    for (const campo of camposPermitidos) {
+    for (const campo of CAMPOS_SOLICITACAO_PERMITIDOS) {
       if (!Object.prototype.hasOwnProperty.call(dados, campo)) continue;
 
       let valor = dados[campo];
+      if (valor === undefined || valor === "") continue;
 
-      // Não mexe com undefined
-      if (valor === undefined) continue;
-
-      // Tratamento específico para usuario_id
       if (campo === "usuario_id") {
         const idNum = Number(valor);
         if (!Number.isNaN(idNum) && idNum > 0) {
@@ -852,15 +898,20 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
         continue;
       }
 
+      if (CAMPOS_NUMERICOS.includes(campo)) {
+        const num = normalizarNumero(valor);
+        if (num === null) continue;
+        dataAtualizar[campo] = num;
+        continue;
+      }
+
       dataAtualizar[campo] = valor;
     }
 
-    // Se está alterando status, atualiza também data_ultima_mudanca
     if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
       dataAtualizar.data_ultima_mudanca = new Date();
     }
 
-    // Se nada útil chegou, só devolve o registro atual
     if (Object.keys(dataAtualizar).length === 0) {
       return res.json(existente);
     }
@@ -1232,8 +1283,8 @@ app.get("/relatorios/irpf", authMiddleware, adminOnly, async (req, res) => {
     const dados = await prisma.solicitacao.findMany({
       orderBy: { criado_em: "desc" },
       include: {
-  arquivos: true, // ✅
-},
+        arquivos: true,
+      },
     });
 
     const resultado = dados.map((s) => ({
