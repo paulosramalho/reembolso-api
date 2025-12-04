@@ -495,19 +495,71 @@ app.get("/descricoes", async (req, res) => {
 // =========================
 // 🔰 STATUS
 // =========================
-app.get("/status", async (req, res) => {
+// =========================
+// 🔰 STATUS — CRIAR
+// =========================
+app.post("/status", authMiddleware, adminOnly, async (req, res) => {
   try {
-    const lista = await prisma.$queryRaw`
-      SELECT id, nome, descricao, ativo
-      FROM status
-      WHERE ativo = true
-      ORDER BY id;
-    `;
+    const { nome, descricao, ativo } = req.body;
 
+    if (!nome || !String(nome).trim()) {
+      return res
+        .status(400)
+        .json({ erro: "Nome do status é obrigatório." });
+    }
+
+    const novo = await prisma.status.create({
+      data: {
+        nome: String(nome).trim(),
+        descricao: descricao || null,
+        ativo: ativo !== undefined ? !!ativo : true,
+      },
+    });
+
+    res.json(novo);
+  } catch (err) {
+    console.error("Erro em POST /status:", err);
+    res.status(500).json({ erro: "Erro ao salvar status." });
+  }
+});
+
+// =========================
+// 🔰 STATUS — LISTAR (CONFIGURAÇÕES)
+// =========================
+app.get("/status", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const lista = await prisma.status.findMany({
+      orderBy: { id: "asc" },
+    });
     res.json(lista);
   } catch (err) {
     console.error("Erro em GET /status:", err);
     res.status(500).json({ erro: "Erro ao listar status." });
+  }
+});
+
+// =========================
+// 🔰 STATUS — ATUALIZAR
+// =========================
+app.put("/status/:id", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nome, descricao, ativo } = req.body;
+
+    const data = {};
+    if (nome !== undefined) data.nome = String(nome).trim();
+    if (descricao !== undefined) data.descricao = descricao || null;
+    if (ativo !== undefined) data.ativo = !!ativo;
+
+    const atualizado = await prisma.status.update({
+      where: { id: Number(id) },
+      data,
+    });
+
+    res.json(atualizado);
+  } catch (err) {
+    console.error("Erro em PUT /status/:id:", err);
+    res.status(500).json({ erro: "Erro ao atualizar status." });
   }
 });
 
@@ -618,9 +670,51 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       });
     }
 
+    // Campos realmente existentes no model Solicitacao
+    const camposPermitidos = [
+      "usuario_id",
+      "solicitante_nome",
+      "beneficiario_nome",
+      "beneficiario_doc",
+      "numero_nf",
+      "data_nf",
+      "valor_nf",
+      "emitente_nome",
+      "emitente_doc",
+      "status",
+      "data_solicitacao",
+      "data_ultima_mudanca",
+      "protocolo",
+      "valor",
+      "descricao",
+      "data_pagamento",
+      "valor_reembolso",
+    ];
+
+    const dataAtualizar = {};
+
+    for (const campo of camposPermitidos) {
+      if (Object.prototype.hasOwnProperty.call(dados, campo)) {
+        const valor = dados[campo];
+        if (valor !== undefined) {
+          dataAtualizar[campo] = valor;
+        }
+      }
+    }
+
+    // Se está alterando status, atualiza também data_ultima_mudanca
+    if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
+      dataAtualizar.data_ultima_mudanca = new Date();
+    }
+
+    // Se nada útil chegou, só devolve o registro atual
+    if (Object.keys(dataAtualizar).length === 0) {
+      return res.json(existente);
+    }
+
     const atualizado = await prisma.solicitacao.update({
       where: { id: solicitacaoId },
-      data: dados,
+      data: dataAtualizar,
     });
 
     res.json(atualizado);
