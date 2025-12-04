@@ -281,7 +281,7 @@ app.post("/auth/esqueci-senha", async (req, res) => {
     }
 
     const token = Math.random().toString(36).substring(2, 15);
-    const expires = new Date(Date.now() + 60 * 60 * 1000);
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1h
 
     await prisma.usuario.update({
       where: { id: usuario.id },
@@ -296,7 +296,8 @@ app.post("/auth/esqueci-senha", async (req, res) => {
 
     let emailEnviado = false;
 
-        if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    // Só tenta mandar e-mail se SMTP estiver configurado
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
       try {
         const transporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST,
@@ -324,18 +325,9 @@ app.post("/auth/esqueci-senha", async (req, res) => {
         console.error("⚠ Erro ao enviar e-mail de redefinição:", errMail);
       }
     } else {
-      console.warn("⚠ SMTP não configurado. E-mail de reset NÃO enviado.");
-    }
-
-    // Mesmo que o e-mail falhe, o token foi gerado e salvo
-    res.json({ ok: true, emailEnviado });
-
-        emailEnviado = true;
-      } catch (errMail) {
-        console.error("⚠ Erro ao enviar e-mail de redefinição:", errMail);
-      }
-    } else {
-      console.warn("⚠ SMTP não configurado. E-mail de reset NÃO enviado.");
+      console.warn(
+        "⚠ SMTP não configurado. E-mail de reset NÃO enviado. Configure SMTP_HOST, SMTP_USER e SMTP_PASS."
+      );
     }
 
     // Mesmo que o e-mail falhe, o token foi gerado e salvo
@@ -428,11 +420,8 @@ function mapSolicitacaoComSolicitante(s) {
 
   return {
     ...s,
-    // compatibilidade com o front:
     solicitante_nome: nomeSolicitante,
     solicitante: nomeSolicitante,
-
-    // anexos no nome antigo que o front espera
     solicitacao_arquivos: s.arquivos || s.solicitacao_arquivos || [],
   };
 }
