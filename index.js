@@ -221,7 +221,9 @@ app.post("/auth/reset-solicitar", async (req, res) => {
   try {
     const { email } = req.body;
 
-    const usuario = await prisma.usuario.findUnique({ where: { email } });
+    const usuario = await prisma.usuario.findFirst({
+  where: { email },
+});
     if (!usuario) {
       return res.status(400).json({ erro: "Usuário não encontrado." });
     }
@@ -273,7 +275,9 @@ app.post("/auth/esqueci-senha", async (req, res) => {
   try {
     const { email } = req.body;
 
-    const usuario = await prisma.usuario.findUnique({ where: { email } });
+    const usuario = await prisma.usuario.findFirst({
+  where: { email },
+});
     if (!usuario) {
       return res
         .status(400)
