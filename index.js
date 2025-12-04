@@ -728,7 +728,12 @@ app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
 app.post("/solicitacoes", authMiddleware, async (req, res) => {
   try {
     const dados = req.body;
-    const usuarioIdSolicitante = Number(dados.usuario_id);
+
+    // Tenta pegar o solicitante do body; se vier ruim, usa o próprio usuário logado
+    let usuarioIdSolicitante = Number(dados.usuario_id || req.user.id);
+    if (Number.isNaN(usuarioIdSolicitante) || usuarioIdSolicitante <= 0) {
+      usuarioIdSolicitante = req.user.id;
+    }
 
     // usuario_id = solicitante REAL.
     if (req.user.tipo !== "admin" && req.user.id !== usuarioIdSolicitante) {
@@ -737,11 +742,43 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
       });
     }
 
+    // Campos realmente existentes no model Solicitacao
+    const camposPermitidos = [
+      "solicitante_nome",
+      "beneficiario_nome",
+      "beneficiario_doc",
+      "numero_nf",
+      "data_nf",
+      "valor_nf",
+      "emitente_nome",
+      "emitente_doc",
+      "status",
+      "data_solicitacao",
+      "protocolo",
+      "valor",
+      "descricao",
+      "data_pagamento",
+      "valor_reembolso",
+    ];
+
+    const dataCriar = {
+      usuario_id: usuarioIdSolicitante,
+    };
+
+    for (const campo of camposPermitidos) {
+      if (!Object.prototype.hasOwnProperty.call(dados, campo)) continue;
+      const valor = dados[campo];
+      if (valor === undefined) continue;
+      dataCriar[campo] = valor;
+    }
+
+    // Se não veio status, garante um default
+    if (!dataCriar.status) {
+      dataCriar.status = dados.status || "Em análise";
+    }
+
     const nova = await prisma.solicitacao.create({
-      data: {
-        ...dados,
-        usuario_id: usuarioIdSolicitante,
-      },
+      data: dataCriar,
     });
 
     res.json(nova);
