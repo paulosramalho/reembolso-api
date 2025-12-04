@@ -22,6 +22,13 @@ const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const APP_BASE_URL = process.env.APP_BASE_URL || "";
 
+console.log("🔧 SMTP DEBUG:", {
+  host: process.env.SMTP_HOST,
+  user: process.env.SMTP_USER,
+  hasPass: !!process.env.SMTP_PASS,
+});
+
+
 // =========================
 // 🔰 MIDDLEWARES
 // =========================
