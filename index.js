@@ -717,7 +717,7 @@ app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
       orderBy: { criado_em: "desc" },
       include: {
         arquivos: true,
-        statusHistory: true,
+        // statusHistory REMOVIDO do include
         usuario: true,
       },
     });
@@ -737,7 +737,7 @@ app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
       orderBy: { criado_em: "desc" },
       include: {
         arquivos: true,
-        statusHistory: true,
+        // statusHistory REMOVIDO do include
         usuario: true,
       },
     });
@@ -872,7 +872,7 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
 app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const dados = req.body;
+       const dados = req.body;
     const solicitacaoId = Number(id);
 
     const existente = await prisma.solicitacao.findUnique({
@@ -1191,7 +1191,7 @@ app.get("/kanban", authMiddleware, adminOnly, async (req, res) => {
       orderBy: { criado_em: "desc" },
       include: {
         arquivos: true,
-        statusHistory: true,
+        // statusHistory REMOVIDO do include
         usuario: true,
       },
     });
@@ -1234,7 +1234,7 @@ app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
       take: 10,
       include: {
         arquivos: true,
-        statusHistory: true,
+        // statusHistory REMOVIDO do include
         usuario: true,
       },
     });
