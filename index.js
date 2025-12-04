@@ -459,9 +459,15 @@ function mapSolicitacaoComSolicitante(s) {
     ...s,
     solicitante_nome: nomeSolicitante,
     solicitante: nomeSolicitante,
+
+    // aliases para anexos
     solicitacao_arquivos: arquivosArray,
-    arquivos: arquivosArray,          // alias p/ telas que leem "arquivos"
-    docs_count: arquivosArray.length, // possível uso na coluna DOCS
+    arquivos: arquivosArray,
+    documentos: arquivosArray,
+
+    // aliases para quantidade de docs (usado na coluna DOCS)
+    docs: arquivosArray.length,
+    docs_count: arquivosArray.length,
     documentos_count: arquivosArray.length,
   };
 }
@@ -1146,7 +1152,7 @@ app.delete("/arquivos/:id", authMiddleware, async (req, res) => {
 });
 
 // =========================
-// 🔰 HISTÓRICO DE STATUS (POR SOLICITAÇÃO)
+// 🔰 HISTÓRICO DE STATUS (POR SOLICITAÇÃO) — AGORA “ESCONDIDO” NO MODAL
 // =========================
 app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
   try {
@@ -1167,12 +1173,9 @@ app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
       });
     }
 
-    const lista = await prisma.solicitacao_status_history.findMany({
-      where: { solicitacao_id: solicitacaoId },
-      orderBy: { data: "desc" },
-    });
-
-    res.json(lista);
+    // ✅ Como você já tem uma página própria de Histórico,
+    // aqui devolvemos SEMPRE lista vazia, para o modal não mostrar mais "* Em análise - -"
+    return res.json([]);
   } catch (err) {
     console.error("Erro em GET /solicitacoes/:id/historico:", err);
     res.status(500).json({ erro: "Erro ao buscar histórico." });
