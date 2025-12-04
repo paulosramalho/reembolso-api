@@ -452,14 +452,17 @@ function mapSolicitacaoComSolicitante(s) {
   const nomeSolicitante =
     s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
 
-  const arquivos = s.solicitacao_arquivos || s.arquivos || [];
+  // Garante que pegamos sempre o array de arquivos correto
+  const arquivosArray = s.arquivos || s.solicitacao_arquivos || [];
 
   return {
     ...s,
     solicitante_nome: nomeSolicitante,
     solicitante: nomeSolicitante,
-    solicitacao_arquivos: arquivos,
-    arquivos, // alias p/ telas que leem "arquivos"
+    solicitacao_arquivos: arquivosArray,
+    arquivos: arquivosArray,          // alias p/ telas que leem "arquivos"
+    docs_count: arquivosArray.length, // possível uso na coluna DOCS
+    documentos_count: arquivosArray.length,
   };
 }
 
@@ -804,6 +807,32 @@ const CAMPOS_SOLICITACAO_PERMITIDOS = [
 
 const CAMPOS_NUMERICOS = ["valor_nf", "valor", "valor_reembolso"];
 
+// Campos de data que precisam ir como Date/DateTime para o Prisma
+const CAMPOS_DATA = [
+  "data_nf",
+  "data_solicitacao",
+  "data_ultima_mudanca",
+  "data_pagamento",
+];
+
+function normalizarData(valor) {
+  if (valor === null || valor === undefined || valor === "") return null;
+  if (valor instanceof Date) return valor;
+
+  const s = String(valor).trim();
+
+  // Se vier só como "YYYY-MM-DD" (como no seu log), completa com T00:00:00Z
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const d = new Date(s + "T00:00:00.000Z");
+    if (isNaN(d.getTime())) return null;
+    return d;
+  }
+
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return null;
+  return d;
+}
+
 // =========================
 // 🔰 CRIAR SOLICITAÇÃO
 // =========================
@@ -841,6 +870,13 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
         continue;
       }
 
+      if (CAMPOS_DATA.includes(campo)) {
+        const dt = normalizarData(valor);
+        if (!dt) continue;
+        dataCriar[campo] = dt;
+        continue;
+      }
+
       dataCriar[campo] = valor;
     }
 
@@ -873,7 +909,7 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
     });
 
     if (!existente) {
-      return res.status(404).json({ erro: "Solicitação não encontrada." });
+      return res.status(404).json({ erro: "Solicitação não encontrado." });
     }
 
     if (req.user.tipo !== "admin" && existente.usuario_id !== req.user.id) {
@@ -902,6 +938,13 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
         const num = normalizarNumero(valor);
         if (num === null) continue;
         dataAtualizar[campo] = num;
+        continue;
+      }
+
+      if (CAMPOS_DATA.includes(campo)) {
+        const dt = normalizarData(valor);
+        if (!dt) continue;
+        dataAtualizar[campo] = dt;
         continue;
       }
 
