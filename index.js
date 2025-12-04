@@ -448,6 +448,7 @@ function mapSolicitacaoComSolicitante(s) {
     s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
 
   const arquivosArray = s.arquivos || s.solicitacao_arquivos || [];
+  const count = arquivosArray.length;
 
   return {
     ...s,
@@ -456,9 +457,13 @@ function mapSolicitacaoComSolicitante(s) {
     solicitacao_arquivos: arquivosArray,
     arquivos: arquivosArray,
     documentos: arquivosArray,
-    docs: arquivosArray.length,
-    docs_count: arquivosArray.length,
-    documentos_count: arquivosArray.length,
+
+    // Contadores de anexos – vários aliases para o front usar
+    docs: count,
+    docs_count: count,
+    documentos_count: count,
+    qtd_arquivos: count,
+    qtd_documentos: count,
   };
 }
 
@@ -872,7 +877,7 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
 app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-       const dados = req.body;
+    const dados = req.body;
     const solicitacaoId = Number(id);
 
     const existente = await prisma.solicitacao.findUnique({
