@@ -993,9 +993,13 @@ if (statusMudou) {
         null;
 
       // ✅ DATA DO MOVIMENTO: usa SEMPRE a data_ultima_mudanca (ou agora)
-      const dataHistorico =
-        atualizado.data_ultima_mudanca ||
-        new Date();
+        const dataHistorico =
+        normalizarData(dados.data) ||               // se vier "data" no body
+        normalizarData(dados.data_nf) ||            // se vier "data_nf"
+        normalizarData(dados.data_solicitacao) ||   // se vier "data_solicitacao"
+        existente.data_nf ||                        // senão, usa o que já está na solicitação
+        existente.data_solicitacao ||
+        new Date();                                 // fallback absoluto (evita erro)
 
       await Historico.create({
         data: {
@@ -1396,9 +1400,13 @@ if (status === "Aguardando documento") {
 const Historico = getHistoricoModel();
 if (Historico) {
   // ✅ DATA DO MOVIMENTO: mesma lógica, data_ultima_mudanca ou agora
-  const dataHistorico =
-    atualizado.data_ultima_mudanca ||
-    new Date();
+    const dataHistorico =
+    normalizarData(req.body.data) ||               // se o front mandar "data"
+    normalizarData(req.body.data_nf) ||            // ou "data_nf"
+    normalizarData(req.body.data_solicitacao) ||   // ou "data_solicitacao"
+    atualizado.data_nf ||                          // senão, usa a data da solicitação
+    atualizado.data_solicitacao ||
+    new Date();                                    // fallback absoluto
 
   await Historico.create({
     data: {
