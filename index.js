@@ -982,45 +982,38 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       data: dataAtualizar,
     });
 
-        // 🔹 Se o status mudou (via edição genérica), registra no histórico
-    if (statusMudou) {
-      const Historico = getHistoricoModel();
-      if (Historico) {
-        try {
-          // pega eventual observação enviada no corpo (ex.: ao mudar p/ "Aguardando documento")
-          const obsHistorico =
-            dados.obs ??
-            dados.observacao ??
-            null;
+    // 🔹 Se o status mudou (via edição genérica), registra no histórico
+if (statusMudou) {
+  const Historico = getHistoricoModel();
+  if (Historico) {
+    try {
+      const obsHistorico =
+        dados.obs ??
+        dados.observacao ??
+        null;
 
-          // 👉 data do movimento: usa data_ultima_mudanca (que acabou de ser setada)
-          // se por algum motivo não vier, cai pra data normalizada ou "agora"
-                const dataHistorico =
-        normalizarData(dados.data) ||                 // se o front enviar "data"
-        normalizarData(dados.data_solicitacao) ||     // ou "data_solicitacao"
-        normalizarData(dados.data_nf) ||              // ou "data_nf"
-        existente.data_solicitacao ||                 // senão, cai na data da solicitação
-        existente.data_nf ||
-        atualizado.data_ultima_mudanca ||             // só em último caso, a data do movimento
+      // ✅ DATA DO MOVIMENTO: usa SEMPRE a data_ultima_mudanca (ou agora)
+      const dataHistorico =
+        atualizado.data_ultima_mudanca ||
         new Date();
 
-          await Historico.create({
-            data: {
-              solicitacao_id: solicitacaoId,
-              status: atualizado.status,
-              data: dataHistorico,
-              origem: "Edição",
-              obs: obsHistorico,
-            },
-          });
-        } catch (errHist) {
-          console.error(
-            "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
-            errHist
-          );
-        }
-      }
+      await Historico.create({
+        data: {
+          solicitacao_id: solicitacaoId,
+          status: atualizado.status,
+          data: dataHistorico,
+          origem: "Edição",
+          obs: obsHistorico,
+        },
+      });
+    } catch (errHist) {
+      console.error(
+        "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
+        errHist
+      );
     }
+  }
+}
 
     res.json(atualizado);
   } catch (err) {
@@ -1392,38 +1385,33 @@ if (status === "Aguardando documento") {
       });
     }
 
-        const atualizado = await prisma.solicitacao.update({
-      where: { id: Number(id) },
-      data: {
-        status,
-        data_ultima_mudanca: new Date(),
-      },
-    });
+      const atualizado = await prisma.solicitacao.update({
+  where: { id: Number(id) },
+  data: {
+    status,
+    data_ultima_mudanca: new Date(),
+  },
+});
 
-    const Historico = getHistoricoModel();
-    if (Historico) {
-      // 👉 sempre prioriza a data da última mudança (data real do movimento)
-        const dataHistorico =
-    normalizarData(req.body.data) ||              // se o Kanban/front mandar uma data
-    normalizarData(req.body.data_solicitacao) ||
-    normalizarData(req.body.data_nf) ||
-    atualizado.data_solicitacao ||               // senão, usa a data da solicitação
-    atualizado.data_nf ||
-    atualizado.data_ultima_mudanca ||            // e só no fim, “agora”
+const Historico = getHistoricoModel();
+if (Historico) {
+  // ✅ DATA DO MOVIMENTO: mesma lógica, data_ultima_mudanca ou agora
+  const dataHistorico =
+    atualizado.data_ultima_mudanca ||
     new Date();
 
-      await Historico.create({
-        data: {
-          solicitacao_id: Number(id),
-          status,
-          data: dataHistorico,
-          origem: origem || "Sistema",
-          obs: obs || null,
-        },
-      });
-    }
+  await Historico.create({
+    data: {
+      solicitacao_id: Number(id),
+      status,
+      data: dataHistorico,
+      origem: origem || "Sistema",
+      obs: obs || null,
+    },
+  });
+}
 
-    res.json({ ok: true, atualizado });
+res.json({ ok: true, atualizado });
 
   } catch (err) {
     console.error("Erro em PUT /solicitacoes/:id/status:", err);
