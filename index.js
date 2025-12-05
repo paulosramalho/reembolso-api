@@ -35,6 +35,23 @@ function getArquivosModel() {
   return arquivosModel;
 }
 
+// Helper para acessar o modelo de histórico de status, qualquer que seja o nome no Prisma
+const historicoModel =
+  prisma.solicitacao_status_history || // se por acaso existir com esse nome (pouco provável)
+  prisma.solicitacaoStatusHistory ||
+  prisma.SolicitacaoStatusHistory ||
+  prisma.Solicitacao_status_history ||
+  null;
+
+function getHistoricoModel() {
+  if (!historicoModel) {
+    console.error(
+      "Modelo de histórico de status (solicitacaoStatusHistory / SolicitacaoStatusHistory / solicitacao_status_history) não encontrado no Prisma Client."
+    );
+  }
+  return historicoModel;
+}
+
 const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const APP_BASE_URL = process.env.APP_BASE_URL || "";
@@ -864,9 +881,10 @@ const nova = await prisma.solicitacao.create({
 });
 
 // 🔹 Grava histórico inicial de status ("Em análise" ou status definido)
-if (prisma.solicitacao_status_history?.create) {
+const Historico = getHistoricoModel();
+if (Historico) {
   try {
-    await prisma.solicitacao_status_history.create({
+    await Historico.create({
       data: {
         solicitacao_id: nova.id,
         status: nova.status || dataCriar.status || "Em análise",
@@ -876,15 +894,8 @@ if (prisma.solicitacao_status_history?.create) {
       },
     });
   } catch (errHist) {
-    console.error(
-      "Erro ao gravar histórico inicial da solicitação:",
-      errHist
-    );
+    console.error("Erro ao gravar histórico inicial da solicitação:", errHist);
   }
-} else {
-  console.warn(
-    "Modelo solicitacao_status_history não existe; histórico inicial não será gravado."
-  );
 }
 
 res.json(nova);
@@ -970,24 +981,27 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
     });
 
     // 🔹 Se o status mudou (via edição genérica), registra no histórico
-    if (statusMudou && prisma.solicitacao_status_history?.create) {
-      try {
-        await prisma.solicitacao_status_history.create({
-          data: {
-            solicitacao_id: solicitacaoId,
-            status: atualizado.status,
-            data: new Date(),
-            origem: "Edição",
-            obs: null,
-          },
-        });
-      } catch (errHist) {
-        console.error(
-          "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
-          errHist
-        );
-      }
+if (statusMudou) {
+  const Historico = getHistoricoModel();
+  if (Historico) {
+    try {
+      await Historico.create({
+        data: {
+          solicitacao_id: solicitacaoId,
+          status: atualizado.status,
+          data: new Date(),
+          origem: "Edição",
+          obs: null,
+        },
+      });
+    } catch (errHist) {
+      console.error(
+        "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
+        errHist
+      );
     }
+  }
+}
 
     res.json(atualizado);
   } catch (err) {
@@ -1052,22 +1066,19 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
     }
 
     // Remove histórico de status (se o modelo existir)
-    if (prisma.solicitacao_status_history?.deleteMany) {
-      try {
-        await prisma.solicitacao_status_history.deleteMany({
-          where: { solicitacao_id: solicitacaoId },
-        });
-      } catch (e) {
-        console.error(
-          "Erro ao apagar histórico de status da solicitação (ignorando e prosseguindo):",
-          e
-        );
-      }
-    } else {
-      console.warn(
-        "Modelo solicitacao_status_history não existe no Prisma – pulando exclusão de histórico."
-      );
-    }
+const Historico = getHistoricoModel();
+if (Historico) {
+  try {
+    await Historico.deleteMany({
+      where: { solicitacao_id: solicitacaoId },
+    });
+  } catch (e) {
+    console.error(
+      "Erro ao apagar histórico de status da solicitação (ignorando e prosseguindo):",
+      e
+    );
+  }
+}
 
     await prisma.solicitacao.delete({
       where: { id: solicitacaoId },
@@ -1315,17 +1326,15 @@ app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
       });
     }
 
-    if (!prisma.solicitacao_status_history?.findMany) {
-      console.warn(
-        "Modelo solicitacao_status_history não existe; retornando histórico vazio."
-      );
-      return res.json([]);
-    }
+    const Historico = getHistoricoModel();
+if (!Historico) {
+  return res.json([]);
+}
 
-    const lista = await prisma.solicitacao_status_history.findMany({
-      where: { solicitacao_id: solicitacaoId },
-      orderBy: { data: "desc" },
-    });
+const lista = await Historico.findMany({
+  where: { solicitacao_id: solicitacaoId },
+  orderBy: { data: "desc" },
+});
 
     res.json(lista);
   } catch (err) {
@@ -1363,21 +1372,18 @@ app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) 
       },
     });
 
-    if (prisma.solicitacao_status_history?.create) {
-      await prisma.solicitacao_status_history.create({
-        data: {
-          solicitacao_id: Number(id),
-          status,
-          data: new Date(),
-          origem: origem || "Sistema",
-          obs: obs || null,
-        },
-      });
-    } else {
-      console.warn(
-        "Modelo solicitacao_status_history não existe; não será gravado histórico."
-      );
-    }
+    const Historico = getHistoricoModel();
+if (Historico) {
+  await Historico.create({
+    data: {
+      solicitacao_id: Number(id),
+      status,
+      data: new Date(),
+      origem: origem || "Sistema",
+      obs: obs || null,
+    },
+  });
+}
 
     res.json({ ok: true, atualizado });
   } catch (err) {
@@ -1467,16 +1473,14 @@ app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
 // =========================
 app.get("/historico", authMiddleware, adminOnly, async (req, res) => {
   try {
-    if (!prisma.solicitacao_status_history?.findMany) {
-      console.warn(
-        "Modelo solicitacao_status_history não existe; retornando histórico vazio."
-      );
-      return res.json([]);
-    }
+    const Historico = getHistoricoModel();
+if (!Historico) {
+  return res.json([]);
+}
 
-    const lista = await prisma.solicitacao_status_history.findMany({
-      orderBy: { data: "desc" },
-    });
+const lista = await Historico.findMany({
+  orderBy: { data: "desc" },
+});
 
     res.json(lista);
   } catch (err) {
