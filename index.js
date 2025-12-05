@@ -856,14 +856,39 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
     }
 
     if (!dataCriar.status) {
-      dataCriar.status = dados.status || "Em análise";
-    }
+  dataCriar.status = dados.status || "Em análise";
+}
 
-    const nova = await prisma.solicitacao.create({
-      data: dataCriar,
+const nova = await prisma.solicitacao.create({
+  data: dataCriar,
+});
+
+// 🔹 Grava histórico inicial de status ("Em análise" ou status definido)
+if (prisma.solicitacao_status_history?.create) {
+  try {
+    await prisma.solicitacao_status_history.create({
+      data: {
+        solicitacao_id: nova.id,
+        status: nova.status || dataCriar.status || "Em análise",
+        data: new Date(),
+        origem: "Criação",
+        obs: null,
+      },
     });
+  } catch (errHist) {
+    console.error(
+      "Erro ao gravar histórico inicial da solicitação:",
+      errHist
+    );
+  }
+} else {
+  console.warn(
+    "Modelo solicitacao_status_history não existe; histórico inicial não será gravado."
+  );
+}
 
-    res.json(nova);
+res.json(nova);
+
   } catch (err) {
     console.error("Erro em POST /solicitacoes:", err);
     res.status(500).json({ erro: "Erro ao criar solicitação." });
@@ -884,6 +909,8 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       return res.status(404).json({ erro: "Solicitação não encontrada." });
     }
 
+    const statusAntes = existente.status;
+
     if (req.user.tipo !== "admin" && existente.usuario_id !== req.user.id) {
       return res.status(403).json({
         erro: "Usuário não autorizado a alterar esta solicitação.",
@@ -891,6 +918,7 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
     }
 
     const dataAtualizar = {};
+    let statusMudou = false;
 
     for (const campo of camposPermitidos) {
       if (!Object.prototype.hasOwnProperty.call(dados, campo)) continue;
@@ -926,6 +954,10 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
 
     if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
       dataAtualizar.data_ultima_mudanca = new Date();
+      const novoStatus = dataAtualizar.status;
+      if (novoStatus && novoStatus !== statusAntes) {
+        statusMudou = true;
+      }
     }
 
     if (Object.keys(dataAtualizar).length === 0) {
@@ -936,6 +968,26 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       where: { id: solicitacaoId },
       data: dataAtualizar,
     });
+
+    // 🔹 Se o status mudou (via edição genérica), registra no histórico
+    if (statusMudou && prisma.solicitacao_status_history?.create) {
+      try {
+        await prisma.solicitacao_status_history.create({
+          data: {
+            solicitacao_id: solicitacaoId,
+            status: atualizado.status,
+            data: new Date(),
+            origem: "Edição",
+            obs: null,
+          },
+        });
+      } catch (errHist) {
+        console.error(
+          "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
+          errHist
+        );
+      }
+    }
 
     res.json(atualizado);
   } catch (err) {
