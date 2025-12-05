@@ -34,10 +34,7 @@ console.log("🔧 SMTP DEBUG:", {
 app.use(express.json());
 
 // CORS dinâmico (Render + Vercel + localhost)
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:3000",
-];
+const allowedOrigins = ["http://localhost:5173", "http://localhost:3000"];
 
 if (APP_BASE_URL) {
   allowedOrigins.push(APP_BASE_URL);
@@ -282,9 +279,7 @@ app.post("/auth/esqueci-senha", async (req, res) => {
     const { email } = req.body;
 
     if (!email) {
-      return res
-        .status(400)
-        .json({ ok: false, mensagem: "E-mail é obrigatório." });
+      return res.status(400).json({ ok: false, mensagem: "E-mail é obrigatório." });
     }
 
     const usuario = await prisma.usuario.findFirst({
@@ -314,11 +309,7 @@ app.post("/auth/esqueci-senha", async (req, res) => {
 
     let emailEnviado = false;
 
-    if (
-      process.env.SMTP_HOST &&
-      process.env.SMTP_USER &&
-      process.env.SMTP_PASS
-    ) {
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
       try {
         const transporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST,
@@ -375,9 +366,7 @@ app.post("/auth/reset-confirmar", async (req, res) => {
     const { token, novaSenha } = req.body;
 
     if (!token || !novaSenha) {
-      return res
-        .status(400)
-        .json({ erro: "Token e nova senha são obrigatórios." });
+      return res.status(400).json({ erro: "Token e nova senha são obrigatórios." });
     }
 
     const usuario = await prisma.usuario.findFirst({
@@ -444,8 +433,7 @@ app.get("/usuarios", async (req, res) => {
 
 // Helper p/ mapear solicitante e anexos
 function mapSolicitacaoComSolicitante(s) {
-  const nomeSolicitante =
-    s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
+  const nomeSolicitante = s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
 
   const arquivosArray = s.arquivos || s.solicitacao_arquivos || [];
 
@@ -652,9 +640,7 @@ app.post("/status", authMiddleware, adminOnly, async (req, res) => {
     const { nome, descricao, ativo } = req.body;
 
     if (!nome || !String(nome).trim()) {
-      return res
-        .status(400)
-        .json({ erro: "Nome do status é obrigatório." });
+      return res.status(400).json({ erro: "Nome do status é obrigatório." });
     }
 
     const novo = await prisma.status.create({
@@ -788,12 +774,7 @@ const camposPermitidos = [
 
 const camposNumericos = ["valor_nf", "valor", "valor_reembolso"];
 
-const camposData = [
-  "data_nf",
-  "data_solicitacao",
-  "data_ultima_mudanca",
-  "data_pagamento",
-];
+const camposData = ["data_nf", "data_solicitacao", "data_ultima_mudanca", "data_pagamento"];
 
 function normalizarData(valor) {
   if (valor === null || valor === undefined || valor === "") return null;
@@ -954,7 +935,7 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
 });
 
 // =========================
-// 🔰 SOLICITAÇÕES — DELETE (com arquivos e histórico)
+// 🔰 SOLICITAÇÕES — DELETE (com arquivos e histórico, tolerante)
 // =========================
 app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
   try {
@@ -1002,10 +983,23 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
       where: { solicitacao_id: solicitacaoId },
     });
 
-    // Remove histórico de status (se tiver)
-    await prisma.solicitacao_status_history.deleteMany({
-      where: { solicitacao_id: solicitacaoId },
-    });
+    // Remove histórico de status (se o modelo existir)
+    if (prisma.solicitacao_status_history?.deleteMany) {
+      try {
+        await prisma.solicitacao_status_history.deleteMany({
+          where: { solicitacao_id: solicitacaoId },
+        });
+      } catch (e) {
+        console.error(
+          "Erro ao apagar histórico de status da solicitação (ignorando e prosseguindo):",
+          e
+        );
+      }
+    } else {
+      console.warn(
+        "Modelo solicitacao_status_history não existe no Prisma – pulando exclusão de histórico."
+      );
+    }
 
     // Finalmente, remove a solicitação
     await prisma.solicitacao.delete({
@@ -1025,7 +1019,6 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
 app.post(
   "/solicitacoes/:id/arquivos",
   authMiddleware,
-  // 👇 agora bate com o campo que o front está mandando (file)
   upload.single("file"),
   async (req, res) => {
     try {
@@ -1042,9 +1035,7 @@ app.post(
       });
 
       if (!solicitacao) {
-        return res
-          .status(404)
-          .json({ erro: "Solicitação não encontrada." });
+        return res.status(404).json({ erro: "Solicitação não encontrada." });
       }
 
       if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
@@ -1082,9 +1073,10 @@ app.post(
       res.json(registro);
     } catch (err) {
       console.error("Erro em POST /solicitacoes/:id/arquivos:", err);
-      res
-        .status(500)
-        .json({ erro: "Erro ao enviar arquivo.", detalhe: err?.message || String(err) });
+      res.status(500).json({
+        erro: "Erro ao enviar arquivo.",
+        detalhe: err?.message || String(err),
+      });
     }
   }
 );
@@ -1154,9 +1146,7 @@ app.get("/arquivos/:id/download", authMiddleware, async (req, res) => {
     const fullPath = path.join(uploadDir, arquivo.path);
 
     if (!fs.existsSync(fullPath)) {
-      return res
-        .status(410)
-        .json({ erro: "Arquivo não está mais disponível." });
+      return res.status(410).json({ erro: "Arquivo não está mais disponível." });
     }
 
     res.download(fullPath, arquivo.original_name);
