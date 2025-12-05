@@ -981,7 +981,7 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
     for (const arq of arquivos) {
       if (!arq.path) continue;
       const fullPath = path.join(uploadDir, arq.path);
-      if (fs.existsExists(fullPath)) {
+      if (fs.existsSync(fullPath)) {
         try {
           fs.unlinkSync(fullPath);
         } catch (e) {
