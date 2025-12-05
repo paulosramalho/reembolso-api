@@ -722,7 +722,6 @@ app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
       orderBy: { criado_em: "desc" },
       include: {
         arquivos: true,
-        // statusHistory REMOVIDO do include
         usuario: true,
       },
     });
@@ -742,7 +741,6 @@ app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
       orderBy: { criado_em: "desc" },
       include: {
         arquivos: true,
-        // statusHistory REMOVIDO do include
         usuario: true,
       },
     });
@@ -814,7 +812,7 @@ function normalizarData(valor) {
 }
 
 // =========================
-// 🔰 SOLICITAÇÕES — CRIAR / ATUALIZAR
+// 🔰 SOLICITAÇÕES — CRIAR / ATUALIZAR / EXCLUIR
 // =========================
 app.post("/solicitacoes", authMiddleware, async (req, res) => {
   try {
@@ -944,6 +942,68 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("Erro em PUT /solicitacoes/:id:", err);
     res.status(500).json({ erro: "Erro ao atualizar solicitação." });
+  }
+});
+
+// ❌ EXCLUIR SOLICITAÇÃO (com arquivos + histórico)
+// Admin: pode excluir qualquer uma
+// Usuário comum: só pode excluir a própria
+app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
+  try {
+    const solicitacaoId = Number(req.params.id);
+
+    const solicitacao = await prisma.solicitacao.findUnique({
+      where: { id: solicitacaoId },
+    });
+
+    if (!solicitacao) {
+      return res.status(404).json({ erro: "Solicitação não encontrada." });
+    }
+
+    // Regra de permissão:
+    // - admin pode tudo
+    // - user só se for dono da solicitação
+    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a excluir esta solicitação.",
+      });
+    }
+
+    // 1) Buscar arquivos vinculados para apagar do disco
+    const arquivos = await prisma.solicitacao_arquivos.findMany({
+      where: { solicitacao_id: solicitacaoId },
+    });
+
+    for (const arq of arquivos) {
+      const fullPath = path.join(uploadDir, arq.path);
+      if (fs.existsSync(fullPath)) {
+        try {
+          fs.unlinkSync(fullPath);
+        } catch (e) {
+          console.error("Erro ao remover arquivo físico:", fullPath, e);
+        }
+      }
+    }
+
+    // 2) Remover registros de arquivos no banco
+    await prisma.solicitacao_arquivos.deleteMany({
+      where: { solicitacao_id: solicitacaoId },
+    });
+
+    // 3) Remover histórico de status
+    await prisma.solicitacao_status_history.deleteMany({
+      where: { solicitacao_id: solicitacaoId },
+    });
+
+    // 4) Remover a própria solicitação
+    await prisma.solicitacao.delete({
+      where: { id: solicitacaoId },
+    });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro em DELETE /solicitacoes/:id:", err);
+    return res.status(500).json({ erro: "Erro ao excluir solicitação." });
   }
 });
 
@@ -1196,7 +1256,6 @@ app.get("/kanban", authMiddleware, adminOnly, async (req, res) => {
       orderBy: { criado_em: "desc" },
       include: {
         arquivos: true,
-        // statusHistory REMOVIDO do include
         usuario: true,
       },
     });
@@ -1239,7 +1298,6 @@ app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
       take: 10,
       include: {
         arquivos: true,
-        // statusHistory REMOVIDO do include
         usuario: true,
       },
     });
