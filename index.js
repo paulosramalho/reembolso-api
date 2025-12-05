@@ -36,36 +36,56 @@ function getArquivosModel() {
 }
 
 // Helper para acessar o modelo de histórico de status, qualquer que seja o nome no Prisma
-const historicoModel =
-  prisma.solicitacao_status_history || // se por acaso existir com esse nome (pouco provável)
-  prisma.solicitacaoStatusHistory ||
-  prisma.SolicitacaoStatusHistory ||
-  prisma.Solicitacao_status_history ||
-  null;
-
 function getHistoricoModel() {
-  if (!historicoModel) {
+  const Historico =
+    prisma.solicitacaoStatusHistory ||
+    prisma.SolicitacaoStatusHistory ||
+    null;
+
+  if (!Historico) {
     console.error(
-      "Modelo de histórico de status (solicitacaoStatusHistory / SolicitacaoStatusHistory / solicitacao_status_history) não encontrado no Prisma Client."
+      "Modelo SolicitacaoStatusHistory não encontrado no Prisma Client."
     );
   }
-  return historicoModel;
+
+  return Historico;
 }
 
 const PORT = process.env.PORT || 4000;
-const JWT_SECRET = process.env.JWT_SECRET;
-const APP_BASE_URL = process.env.APP_BASE_URL || "";
+const JWT_SECRET = process.env.JWT_SECRET || "segredo-super-seguro";
 
-console.log("🔧 SMTP DEBUG:", {
-  host: process.env.SMTP_HOST,
-  user: process.env.SMTP_USER,
-  hasPass: !!process.env.SMTP_PASS,
+// Diretório de uploads para arquivos de NF, comprovantes, etc.
+const uploadDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Configuração do Multer (upload de arquivos)
+const storage = multer.diskStorage({
+  destination(req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename(req, file, cb) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    // Normaliza o nome do arquivo, removendo caracteres especiais e espaços
+    const originalName = file.originalname
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9.\-_]/g, "_");
+
+    cb(null, `${uniqueSuffix}-${originalName}`);
+  },
 });
 
+const upload = multer({ storage });
+
 // =========================
-// 🔰 MIDDLEWARES
+// 🔰 MIDDLEWARES GERAIS
 // =========================
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:5173";
 
 // CORS dinâmico (Render + Vercel + localhost)
 const allowedOrigins = ["http://localhost:5173", "http://localhost:3000"];
@@ -82,335 +102,268 @@ app.use(
   cors({
     origin(origin, callback) {
       if (!origin) return callback(null, true);
-
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-
-      if (origin.endsWith(".vercel.app") && origin.includes("controle-de-reembolso")) {
-        return callback(null, true);
-      }
-
-      return callback(null, false);
+      console.warn(`Origem não permitida pelo CORS: ${origin}`);
+      return callback(new Error("CORS não permitido para esta origem"), false);
     },
     credentials: true,
   })
 );
 
+// Servir arquivos estáticos de uploads
+app.use("/uploads", express.static(uploadDir));
+
 // =========================
-// 🔰 MIDDLEWARE — AUTENTICAÇÃO & PERFIL
+// 🔰 LOG SIMPLES DE REQUESTS
 // =========================
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// =========================
+// 🔰 FUNÇÕES AUXILIARES
+// =========================
+
+// Normaliza número (string com vírgula, etc.) para número JS
+function normalizarNumero(valor) {
+  if (valor === null || valor === undefined || valor === "") return null;
+  if (typeof valor === "number") return valor;
+  if (typeof valor !== "string") return null;
+
+  const limpo = valor.replace(/\./g, "").replace(",", ".");
+  const num = Number(limpo);
+  if (Number.isNaN(num)) return null;
+  return num;
+}
+
+// Normaliza data vinda do front (YYYY-MM-DD, etc.) para Date
+function normalizarData(valor) {
+  if (!valor) return null;
+  if (valor instanceof Date && !Number.isNaN(valor.getTime())) return valor;
+
+  if (typeof valor === "string") {
+    const parts = valor.split("-");
+    if (parts.length === 3) {
+      const [ano, mes, dia] = parts.map((p) => parseInt(p, 10));
+      if (!Number.isNaN(ano) && !Number.isNaN(mes) && !Number.isNaN(dia)) {
+        return new Date(ano, mes - 1, dia, 12, 0, 0);
+      }
+    }
+    const outraData = new Date(valor);
+    if (!Number.isNaN(outraData.getTime())) {
+      return outraData;
+    }
+  }
+  return null;
+}
+
+// =========================
+// 🔰 AUTENTICAÇÃO (JWT)
+// =========================
+function gerarToken(usuario) {
+  const payload = {
+    id: usuario.id,
+    email: usuario.email,
+    nome: usuario.nome,
+    tipo: usuario.tipo,
+  };
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "12h" });
+}
+
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ erro: "Token não enviado." });
+  if (!authHeader) {
+    return res
+      .status(401)
+      .json({ erro: "Token de autenticação não fornecido." });
   }
 
-  const token = authHeader.replace("Bearer ", "").trim();
+  const [, token] = authHeader.split(" ");
+  if (!token) {
+    return res.status(401).json({ erro: "Token malformado." });
+  }
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    const tipo = String(payload.tipo || "").toLowerCase();
-
-    req.user = {
-      id: payload.id,
-      tipo,
-    };
-    next();
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    return next();
   } catch (err) {
     console.error("Erro ao verificar token:", err);
-    return res.status(401).json({ erro: "Token inválido." });
+    return res.status(401).json({ erro: "Token inválido ou expirado." });
   }
 }
 
+// Middleware para admin
 function adminOnly(req, res, next) {
-  if (!req.user || req.user.tipo !== "admin") {
+  if (req.user?.tipo !== "admin") {
     return res.status(403).json({ erro: "Acesso restrito a administradores." });
   }
-  next();
+  return next();
 }
 
 // =========================
-// 🔰 UPLOADS
+// 🔰 ROTA RAIZ
 // =========================
-const uploadDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination(req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename(req, file, cb) {
-    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, unique + ext);
-  },
-});
-
-const upload = multer({ storage });
-
-// =========================
-// 🔰 HEALTH CHECK
-// =========================
-app.get("/health", async (req, res) => {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: "ok" });
-  } catch (err) {
-    console.error("Erro no /health:", err);
-    res.status(500).json({ status: "error", message: "DB indisponível" });
-  }
-});
-
 app.get("/", (req, res) => {
-  res.send("API Reembolso rodando.");
+  res.json({
+    mensagem: "API Reembolso rodando.",
+    APP_BASE_URL,
+    PORT,
+  });
 });
 
 // =========================
-// 🔰 AUTH — LOGIN
+// 🔰 AUTENTICAÇÃO & USUÁRIOS
 // =========================
+
+// Login (e-mail + senha)
 app.post("/auth/login", async (req, res) => {
   try {
-    const { email, login, senha } = req.body;
-    const identificador = email || login;
+    const { email, senha } = req.body;
 
-    if (!identificador || !senha) {
-      return res.status(400).json({
-        ok: false,
-        success: false,
-        status: "error",
-        mensagem: "Usuário e senha são obrigatórios.",
-      });
+    if (!email || !senha) {
+      return res
+        .status(400)
+        .json({ erro: "E-mail e senha são obrigatórios." });
     }
 
-    const usuario = await prisma.usuario.findFirst({
-      where: {
-        OR: [{ email: identificador }, { nome: identificador }],
-      },
+    const usuario = await prisma.usuario.findUnique({
+      where: { email },
     });
 
     if (!usuario) {
-      return res
-        .status(400)
-        .json({ ok: false, success: false, status: "error", mensagem: "Usuário não encontrado." });
+      return res.status(401).json({ erro: "Usuário não encontrado." });
     }
 
-    const senhaOk = await bcrypt.compare(senha, usuario.senha_hash);
-    if (!senhaOk) {
-      return res
-        .status(400)
-        .json({ ok: false, success: false, status: "error", mensagem: "Usuário ou senha inválidos." });
+    const senhaValida = await bcrypt.compare(senha, usuario.senha_hash);
+    if (!senhaValida) {
+      return res.status(401).json({ erro: "Senha inválida." });
     }
 
-    if (!JWT_SECRET) {
-      console.error("JWT_SECRET não definido");
-      return res.status(500).json({
-        ok: false,
-        success: false,
-        status: "error",
-        mensagem: "Erro de configuração do servidor.",
-      });
-    }
+    const token = gerarToken(usuario);
 
-    const token = jwt.sign(
-      { id: usuario.id, tipo: (usuario.tipo || "").toLowerCase() },
-      JWT_SECRET,
-      { expiresIn: "8h" }
-    );
-
-    const userPayload = {
+    const usuarioSemHash = {
       id: usuario.id,
       nome: usuario.nome,
       email: usuario.email,
-      cpfcnpj: usuario.cpfcnpj,
+      cpf: usuario.cpf,
       telefone: usuario.telefone,
       tipo: usuario.tipo,
+      ativo: usuario.ativo,
+      criado_em: usuario.criado_em,
+      atualizado_em: usuario.atualizado_em,
     };
 
     res.json({
-      ok: true,
-      success: true,
-      status: "ok",
-      message: "Login realizado com sucesso.",
       token,
-      usuario: userPayload,
-      user: userPayload,
-      data: {
-        token,
-        usuario: userPayload,
-        user: userPayload,
-      },
+      usuario: usuarioSemHash,
     });
   } catch (err) {
     console.error("Erro em /auth/login:", err);
-    res
-      .status(500)
-      .json({ ok: false, success: false, status: "error", mensagem: "Erro interno ao tentar fazer login." });
+    res.status(500).json({ erro: "Erro ao efetuar login." });
   }
 });
 
-// =========================
-// 🔰 AUTH — RESET SENHA (SOLICITAR)
-// =========================
-app.post("/auth/reset-solicitar", async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    const usuario = await prisma.usuario.findFirst({
-      where: { email },
-    });
-    if (!usuario) {
-      return res.status(400).json({ erro: "Usuário não encontrado." });
-    }
-
-    const token = Math.random().toString(36).substring(2, 15);
-    const expires = new Date(Date.now() + 60 * 60 * 1000);
-
-    await prisma.usuario.update({
-      where: { id: usuario.id },
-      data: {
-        reset_token: token,
-        reset_token_expires: expires,
-      },
-    });
-
-    const base = APP_BASE_URL.replace(/\/$/, "");
-    const resetLink = `${base}/resetar-senha/${token}`;
-
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
-      secure: process.env.SMTP_SECURE === "true",
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
-
-    await transporter.sendMail({
-      from: process.env.MAIL_FROM,
-      to: usuario.email,
-      subject: "Redefinição de senha - Controle de Reembolso",
-      html: `
-        <p>Olá, ${usuario.nome}</p>
-        <p>Clique no link abaixo para redefinir sua senha:</p>
-        <p><a href="${resetLink}">${resetLink}</a></p>
-      `,
-    });
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("Erro em /auth/reset-solicitar:", err);
-    res.status(500).json({ erro: "Erro ao solicitar redefinição de senha." });
-  }
-});
-
-// Alias compatível com o front
+// "Esqueci minha senha" - Envia e-mail com token de redefinição
 app.post("/auth/esqueci-senha", async (req, res) => {
   try {
     const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json({ ok: false, mensagem: "E-mail é obrigatório." });
+      return res.status(400).json({ erro: "E-mail é obrigatório." });
     }
 
-    const usuario = await prisma.usuario.findFirst({
-      where: { email },
-    });
-
+    const usuario = await prisma.usuario.findUnique({ where: { email } });
     if (!usuario) {
-      return res.json({
-        ok: true,
-        emailEnviado: false,
-      });
+      return res.status(404).json({ erro: "Usuário não encontrado." });
     }
 
-    const token = Math.random().toString(36).substring(2, 15);
+    const resetToken = jwt.sign({ id: usuario.id }, JWT_SECRET, {
+      expiresIn: "1h",
+    });
 
     await prisma.usuario.update({
       where: { id: usuario.id },
       data: {
-        reset_token: token,
+        reset_token: resetToken,
+        reset_token_expira_em: new Date(Date.now() + 60 * 60 * 1000),
       },
     });
 
-    const base = (APP_BASE_URL || "").replace(/\/$/, "");
-    const resetLink = `${
-      base || "https://controle-de-reembolso.vercel.app"
-    }/resetar-senha/${token}`;
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || "smtp.gmail.com",
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER || "seu_email@gmail.com",
+        pass: process.env.SMTP_PASS || "sua_senha",
+      },
+    });
 
-    let emailEnviado = false;
+    const resetLink =
+      process.env.FRONTEND_RESET_URL ||
+      `${APP_BASE_URL}/resetar-senha?token=${resetToken}`;
 
-    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: Number(process.env.SMTP_PORT) || 587,
-          secure: process.env.SMTP_SECURE === "true",
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-          },
-          connectionTimeout: 5000,
-          greetingTimeout: 5000,
-          socketTimeout: 5000,
-        });
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || "no-reply@seusistema.com",
+      to: email,
+      subject: "Redefinição de senha - Controle de Reembolso",
+      text: `Olá, ${usuario.nome}!\n\nVocê solicitou a redefinição de senha. Acesse o link abaixo para criar uma nova senha (válido por 1 hora):\n\n${resetLink}\n\nSe você não solicitou essa redefinição, ignore este e-mail.`,
+      html: `<p>Olá, <strong>${usuario.nome}</strong>!</p>
+             <p>Você solicitou a redefinição de senha. Acesse o link abaixo para criar uma nova senha (válido por 1 hora):</p>
+             <p><a href="${resetLink}">${resetLink}</a></p>
+             <p>Se você não solicitou essa redefinição, ignore este e-mail.</p>`,
+    });
 
-        await transporter.sendMail({
-          from: process.env.MAIL_FROM || process.env.SMTP_USER,
-          to: usuario.email,
-          subject: "Redefinição de senha - Controle de Reembolso",
-          html: `
-            <p>Olá, ${usuario.nome}</p>
-            <p>Clique no link abaixo para redefinir sua senha:</p>
-            <p><a href="${resetLink}">${resetLink}</a></p>
-          `,
-        });
-
-        emailEnviado = true;
-      } catch (errMail) {
-        console.error("⚠ Erro ao enviar e-mail de redefinição:", errMail);
-        console.log("🔗 Link de redefinição gerado:", resetLink);
-      }
-    } else {
-      console.warn(
-        "⚠ SMTP não configurado. E-mail de reset NÃO enviado (HOST/USER/PASS ausentes)."
-      );
-      console.log("🔗 Link de redefinição gerado:", resetLink);
-    }
-
-    return res.json({ ok: true, emailEnviado });
+    res.json({ mensagem: "E-mail de redefinição enviado com sucesso." });
   } catch (err) {
     console.error("Erro em /auth/esqueci-senha:", err);
-    return res.status(200).json({
-      ok: false,
-      emailEnviado: false,
-      mensagem: "Erro ao solicitar redefinição de senha.",
-    });
+    res.status(500).json({ erro: "Erro ao processar solicitação de senha." });
   }
 });
 
-// =========================
-// 🔰 AUTH — RESET SENHA (CONFIRMAR)
-// =========================
-app.post("/auth/reset-confirmar", async (req, res) => {
+// Redefinir senha (com token)
+app.post("/auth/resetar-senha", async (req, res) => {
   try {
     const { token, novaSenha } = req.body;
 
     if (!token || !novaSenha) {
-      return res.status(400).json({ erro: "Token e nova senha são obrigatórios." });
+      return res
+        .status(400)
+        .json({ erro: "Token e nova senha são obrigatórios." });
     }
 
-    const usuario = await prisma.usuario.findFirst({
-      where: {
-        reset_token: token,
-      },
-    });
+    let payload;
+    try {
+      payload = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      console.error("Token de redefinição inválido ou expirado:", err);
+      return res
+        .status(400)
+        .json({ erro: "Token inválido ou expirado para redefinição." });
+    }
 
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: payload.id },
+    });
     if (!usuario) {
-      return res.status(400).json({ erro: "Token inválido." });
+      return res.status(404).json({ erro: "Usuário não encontrado." });
+    }
+
+    if (!usuario.reset_token || usuario.reset_token !== token) {
+      return res
+        .status(400)
+        .json({ erro: "Token de redefinição não confere." });
+    }
+
+    if (
+      !usuario.reset_token_expira_em ||
+      usuario.reset_token_expira_em < new Date()
+    ) {
+      return res.status(400).json({ erro: "Token de redefinição expirado." });
     }
 
     const hash = await bcrypt.hash(novaSenha, 10);
@@ -420,415 +373,395 @@ app.post("/auth/reset-confirmar", async (req, res) => {
       data: {
         senha_hash: hash,
         reset_token: null,
+        reset_token_expira_em: null,
       },
     });
 
-    res.json({ ok: true });
+    res.json({ mensagem: "Senha redefinida com sucesso." });
   } catch (err) {
-    console.error("Erro em /auth/reset-confirmar:", err);
+    console.error("Erro em /auth/resetar-senha:", err);
     res.status(500).json({ erro: "Erro ao redefinir senha." });
   }
 });
 
 // =========================
-// 🔰 USUÁRIOS
+// 🔰 CRUD DE USUÁRIOS (ADMIN)
 // =========================
-app.get("/usuarios/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
 
+// Lista de usuários
+app.get("/usuarios", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const usuarios = await prisma.usuario.findMany({
+      orderBy: { id: "asc" },
+    });
+
+    res.json(usuarios);
+  } catch (err) {
+    console.error("Erro em GET /usuarios:", err);
+    res.status(500).json({ erro: "Erro ao buscar usuários." });
+  }
+});
+
+// Detalhes do "Meu Perfil"
+app.get("/usuarios/me", authMiddleware, async (req, res) => {
+  try {
     const usuario = await prisma.usuario.findUnique({
-      where: { id: Number(id) },
+      where: { id: req.user.id },
     });
 
     if (!usuario) {
       return res.status(404).json({ erro: "Usuário não encontrado." });
     }
 
-    res.json(usuario);
+    const usuarioSemHash = {
+      id: usuario.id,
+      nome: usuario.nome,
+      email: usuario.email,
+      cpf: usuario.cpf,
+      telefone: usuario.telefone,
+      tipo: usuario.tipo,
+      ativo: usuario.ativo,
+      criado_em: usuario.criado_em,
+      atualizado_em: usuario.atualizado_em,
+    };
+
+    res.json(usuarioSemHash);
   } catch (err) {
-    console.error("Erro em GET /usuarios/:id:", err);
-    res.status(500).json({ erro: "Erro ao buscar usuário." });
+    console.error("Erro em GET /usuarios/me:", err);
+    res.status(500).json({ erro: "Erro ao buscar perfil do usuário." });
   }
 });
 
-app.get("/usuarios", async (req, res) => {
+// Atualizar "Meu Perfil"
+app.put("/usuarios/me", authMiddleware, async (req, res) => {
   try {
-    const usuarios = await prisma.usuario.findMany({
-      orderBy: { nome: "asc" },
+    const { nome, telefone } = req.body;
+
+    const atualizado = await prisma.usuario.update({
+      where: { id: req.user.id },
+      data: {
+        nome: nome || undefined,
+        telefone: telefone || undefined,
+      },
     });
 
-    res.json(usuarios);
+    const usuarioSemHash = {
+      id: atualizado.id,
+      nome: atualizado.nome,
+      email: atualizado.email,
+      cpf: atualizado.cpf,
+      telefone: atualizado.telefone,
+      tipo: atualizado.tipo,
+      ativo: atualizado.ativo,
+      criado_em: atualizado.criado_em,
+      atualizado_em: atualizado.atualizado_em,
+    };
+
+    res.json(usuarioSemHash);
   } catch (err) {
-    console.error("Erro em GET /usuarios:", err);
-    res.status(500).json({ erro: "Erro ao listar usuários." });
+    console.error("Erro em PUT /usuarios/me:", err);
+    res.status(500).json({ erro: "Erro ao atualizar perfil do usuário." });
   }
 });
 
-// Helper p/ mapear solicitante e anexos
-function mapSolicitacaoComSolicitante(s) {
-  const nomeSolicitante = s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
-
-  const arquivosArray = s.arquivos || s.solicitacao_arquivos || [];
-
-  const count = arquivosArray.length;
-
-  return {
-    ...s,
-    solicitante_nome: nomeSolicitante,
-    solicitante: nomeSolicitante,
-    solicitacao_arquivos: arquivosArray,
-    arquivos: arquivosArray,
-    documentos: arquivosArray,
-
-    docs: count,
-    docs_count: count,
-    documentos_count: count,
-    qtd_arquivos: count,
-    qtd_documentos: count,
-  };
-}
-
-// =========================
-// 🔰 USUÁRIOS — CRUD (Configurações)
-// =========================
+// Criar usuário (ADMIN)
 app.post("/usuarios", authMiddleware, adminOnly, async (req, res) => {
   try {
-    const { nome, email, senha, tipo, ativo, cpfcnpj, telefone } = req.body;
+    const { nome, email, cpf, telefone, senha, tipo, ativo } = req.body;
 
     if (!nome || !email || !senha) {
-      return res
-        .status(400)
-        .json({ erro: "Nome, e-mail e senha são obrigatórios." });
+      return res.status(400).json({
+        erro: "Nome, e-mail e senha são obrigatórios.",
+      });
     }
 
-    const existente = await prisma.usuario.findFirst({ where: { email } });
-
+    const existente = await prisma.usuario.findUnique({
+      where: { email },
+    });
     if (existente) {
-      return res
-        .status(400)
-        .json({ erro: "Já existe um usuário cadastrado com esse e-mail." });
+      return res.status(400).json({ erro: "E-mail já cadastrado." });
     }
 
     const hash = await bcrypt.hash(senha, 10);
 
     const novo = await prisma.usuario.create({
       data: {
-        nome: String(nome).trim(),
-        email: String(email).trim(),
+        nome,
+        email,
+        cpf: cpf || null,
+        telefone: telefone || null,
         senha_hash: hash,
         tipo: tipo || "user",
         ativo: ativo !== undefined ? !!ativo : true,
-        cpfcnpj: cpfcnpj || null,
-        telefone: telefone || null,
-        primeiro_acesso: true,
       },
     });
 
-    res.json(novo);
+    const usuarioSemHash = {
+      id: novo.id,
+      nome: novo.nome,
+      email: novo.email,
+      cpf: novo.cpf,
+      telefone: novo.telefone,
+      tipo: novo.tipo,
+      ativo: novo.ativo,
+      criado_em: novo.criado_em,
+      atualizado_em: novo.atualizado_em,
+    };
+
+    res.status(201).json(usuarioSemHash);
   } catch (err) {
     console.error("Erro em POST /usuarios:", err);
-    res.status(500).json({ erro: "Erro ao salvar usuário." });
+    res.status(500).json({ erro: "Erro ao criar usuário." });
   }
 });
 
+// Atualizar usuário (ADMIN)
 app.put("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nome, email, senha, tipo, ativo, cpfcnpj, telefone } = req.body;
+    const { nome, email, cpf, telefone, senha, tipo, ativo } = req.body;
 
-    const data = {};
+    const usuarioId = Number(id);
 
-    if (nome !== undefined) data.nome = String(nome).trim();
-    if (email !== undefined) data.email = String(email).trim();
-    if (tipo !== undefined) data.tipo = tipo;
-    if (ativo !== undefined) data.ativo = !!ativo;
-    if (cpfcnpj !== undefined) data.cpfcnpj = cpfcnpj || null;
-    if (telefone !== undefined) data.telefone = telefone || null;
+    const existente = await prisma.usuario.findUnique({
+      where: { id: usuarioId },
+    });
+    if (!existente) {
+      return res.status(404).json({ erro: "Usuário não encontrado." });
+    }
+
+    const dataAtualizar = {
+      nome: nome || existente.nome,
+      email: email || existente.email,
+      cpf: cpf || existente.cpf,
+      telefone: telefone || existente.telefone,
+      tipo: tipo || existente.tipo,
+      ativo:
+        ativo !== undefined && ativo !== null
+          ? !!ativo
+          : existente.ativo,
+    };
 
     if (senha) {
-      data.senha_hash = await bcrypt.hash(senha, 10);
-      data.primeiro_acesso = false;
+      dataAtualizar.senha_hash = await bcrypt.hash(senha, 10);
     }
 
     const atualizado = await prisma.usuario.update({
-      where: { id: Number(id) },
-      data,
+      where: { id: usuarioId },
+      data: dataAtualizar,
     });
 
-    res.json(atualizado);
+    const usuarioSemHash = {
+      id: atualizado.id,
+      nome: atualizado.nome,
+      email: atualizado.email,
+      cpf: atualizado.cpf,
+      telefone: atualizado.telefone,
+      tipo: atualizado.tipo,
+      ativo: atualizado.ativo,
+      criado_em: atualizado.criado_em,
+      atualizado_em: atualizado.atualizado_em,
+    };
+
+    res.json(usuarioSemHash);
   } catch (err) {
     console.error("Erro em PUT /usuarios/:id:", err);
-    res.status(500).json({ erro: "Erro ao salvar usuário." });
+    res.status(500).json({ erro: "Erro ao atualizar usuário." });
   }
 });
 
+// Deletar usuário (ADMIN)
 app.delete("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
+    const usuarioId = Number(id);
 
-    if (req.user && req.user.id === Number(id)) {
-      return res
-        .status(400)
-        .json({ erro: "Você não pode excluir o próprio usuário logado." });
+    const existente = await prisma.usuario.findUnique({
+      where: { id: usuarioId },
+    });
+    if (!existente) {
+      return res.status(404).json({ erro: "Usuário não encontrado." });
     }
 
     await prisma.usuario.delete({
-      where: { id: Number(id) },
+      where: { id: usuarioId },
     });
 
-    res.json({ ok: true });
+    res.json({ mensagem: "Usuário removido com sucesso." });
   } catch (err) {
     console.error("Erro em DELETE /usuarios/:id:", err);
-    res.status(500).json({ erro: "Erro ao excluir usuário." });
+    res.status(500).json({ erro: "Erro ao remover usuário." });
   }
 });
 
 // =========================
 // 🔰 DESCRIÇÕES DE DESPESAS
 // =========================
-app.get("/descricoes", async (req, res) => {
+app.get("/descricoes", authMiddleware, async (req, res) => {
   try {
-    const descricoes = await prisma.$queryRaw`
-      SELECT id, descricao, ativo
-      FROM descricoes
-      WHERE ativo = true
-      ORDER BY descricao;
-    `;
+    const descricoes = await prisma.descricao.findMany({
+      where: { ativo: true },
+      orderBy: { descricao: "asc" },
+    });
+
     res.json(descricoes);
   } catch (err) {
     console.error("Erro em GET /descricoes:", err);
-    res.status(500).json({ erro: "Erro ao listar descrições." });
-  }
-});
-
-app.post("/descricoes", authMiddleware, adminOnly, async (req, res) => {
-  try {
-    const { descricao, ativo } = req.body;
-
-    if (!descricao || !String(descricao).trim()) {
-      return res
-        .status(400)
-        .json({ erro: "Descrição da despesa é obrigatória." });
-    }
-
-    const [novo] = await prisma.$queryRaw`
-      INSERT INTO descricoes (descricao, ativo)
-      VALUES (${String(descricao).trim()}, ${ativo !== undefined ? !!ativo : true})
-      RETURNING id, descricao, ativo;
-    `;
-
-    res.json(novo);
-  } catch (err) {
-    console.error("Erro em POST /descricoes:", err);
-    res.status(500).json({ erro: "Erro ao salvar descrição." });
-  }
-});
-
-app.put("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { descricao, ativo } = req.body;
-
-    const [atualizado] = await prisma.$queryRaw`
-      UPDATE descricoes
-      SET
-        descricao = COALESCE(${descricao !== undefined ? String(descricao).trim() : null}, descricao),
-        ativo = COALESCE(${ativo !== undefined ? !!ativo : null}, ativo)
-      WHERE id = ${Number(id)}
-      RETURNING id, descricao, ativo;
-    `;
-
-    if (!atualizado) {
-      return res.status(404).json({ erro: "Descrição não encontrada." });
-    }
-
-    res.json(atualizado);
-  } catch (err) {
-    console.error("Erro em PUT /descricoes/:id:", err);
-    res.status(500).json({ erro: "Erro ao atualizar descrição." });
-  }
-});
-
-app.delete("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    await prisma.$executeRaw`
-      DELETE FROM descricoes WHERE id = ${Number(id)};
-    `;
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("Erro em DELETE /descricoes/:id:", err);
-    res.status(500).json({ erro: "Erro ao excluir descrição." });
+    res.status(500).json({ erro: "Erro ao buscar descrições." });
   }
 });
 
 // =========================
-// 🔰 STATUS
+// 🔰 STATUS DE SOLICITAÇÕES
 // =========================
-app.post("/status", authMiddleware, adminOnly, async (req, res) => {
-  try {
-    const { nome, descricao, ativo } = req.body;
-
-    if (!nome || !String(nome).trim()) {
-      return res.status(400).json({ erro: "Nome do status é obrigatório." });
-    }
-
-    const novo = await prisma.status.create({
-      data: {
-        nome: String(nome).trim(),
-        descricao: descricao || null,
-        ativo: ativo !== undefined ? !!ativo : true,
-      },
-    });
-
-    res.json(novo);
-  } catch (err) {
-    console.error("Erro em POST /status:", err);
-    res.status(500).json({ erro: "Erro ao salvar status." });
-  }
-});
-
 app.get("/status", authMiddleware, async (req, res) => {
   try {
-    const lista = await prisma.status.findMany({
+    const statusList = await prisma.status.findMany({
+      where: { ativo: true },
       orderBy: { id: "asc" },
     });
-    res.json(lista);
+
+    res.json(statusList);
   } catch (err) {
     console.error("Erro em GET /status:", err);
-    res.status(500).json({ erro: "Erro ao listar status." });
-  }
-});
-
-app.put("/status/:id", authMiddleware, adminOnly, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { nome, descricao, ativo } = req.body;
-
-    const data = {};
-    if (nome !== undefined) data.nome = String(nome).trim();
-    if (descricao !== undefined) data.descricao = descricao || null;
-    if (ativo !== undefined) data.ativo = !!ativo;
-
-    const atualizado = await prisma.status.update({
-      where: { id: Number(id) },
-      data,
-    });
-
-    res.json(atualizado);
-  } catch (err) {
-    console.error("Erro em PUT /status/:id:", err);
-    res.status(500).json({ erro: "Erro ao atualizar status." });
+    res.status(500).json({ erro: "Erro ao buscar status." });
   }
 });
 
 // =========================
-// 🔰 SOLICITAÇÕES — LISTAR
+// 🔰 SOLICITAÇÕES
 // =========================
-app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const usuarioId = Number(id);
 
-    if (req.user.tipo !== "admin" && req.user.id !== usuarioId) {
-      return res.status(403).json({ erro: "Acesso negado para este usuário." });
-    }
-
-    const dados = await prisma.solicitacao.findMany({
-      where: { usuario_id: usuarioId },
-      orderBy: { criado_em: "desc" },
-      include: {
-        arquivos: true,
-        usuario: true,
-      },
-    });
-
-    const resposta = dados.map(mapSolicitacaoComSolicitante);
-
-    res.json(resposta);
-  } catch (err) {
-    console.error("Erro em GET /solicitacoes/usuario/:id:", err);
-    res.status(500).json({ erro: "Erro ao buscar solicitações." });
-  }
-});
-
-app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
-  try {
-    const registros = await prisma.solicitacao.findMany({
-      orderBy: { criado_em: "desc" },
-      include: {
-        arquivos: true,
-        usuario: true,
-      },
-    });
-
-    const resposta = registros.map(mapSolicitacaoComSolicitante);
-
-    res.json(resposta);
-  } catch (err) {
-    console.error("Erro em GET /solicitacoes:", err);
-    res.status(500).json({ erro: "Erro ao listar solicitações." });
-  }
-});
-
-// =========================
-// 🔰 HELPERS — NÚMEROS E DATAS
-// =========================
-function normalizarNumero(valor) {
-  if (valor === null || valor === undefined || valor === "") return null;
-  if (typeof valor === "number") return valor;
-  const limpo = String(valor).replace(/\./g, "").replace(",", ".");
-  const num = Number(limpo);
-  return Number.isNaN(num) ? null : num;
-}
-
+// Campos permitidos para criação/edição de solicitação
 const camposPermitidos = [
   "usuario_id",
-  "solicitante_nome",
-  "beneficiario_nome",
-  "beneficiario_doc",
+  "descricao_id",
   "numero_nf",
   "data_nf",
   "valor_nf",
   "emitente_nome",
   "emitente_doc",
+  "beneficiario_nome",
+  "beneficiario_doc",
   "status",
   "data_solicitacao",
-  "data_ultima_mudanca",
-  "protocolo",
-  "valor",
-  "descricao",
-  "data_pagamento",
-  "valor_reembolso",
 ];
 
-const camposNumericos = ["valor_nf", "valor", "valor_reembolso"];
+// Campos numéricos que devem ser normalizados
+const camposNumericos = ["valor_nf"];
 
-const camposData = ["data_nf", "data_solicitacao", "data_ultima_mudanca", "data_pagamento"];
+// Campos de data
+const camposData = ["data_nf", "data_solicitacao"];
 
-function normalizarData(valor) {
-  if (valor === null || valor === undefined || valor === "") return null;
-  if (valor instanceof Date) return valor;
+// Listar solicitações (com filtros básicos)
+app.get("/solicitacoes", authMiddleware, async (req, res) => {
+  try {
+    const { status, usuario_id } = req.query;
 
-  const s = String(valor).trim();
+    const where = {};
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    const d = new Date(s + "T00:00:00.000Z");
-    if (isNaN(d.getTime())) return null;
-    return d;
+    if (status) {
+      where.status = status;
+    }
+
+    if (usuario_id) {
+      where.usuario_id = Number(usuario_id);
+    } else if (req.user.tipo !== "admin") {
+      where.usuario_id = req.user.id;
+    }
+
+    const solicitacoes = await prisma.solicitacao.findMany({
+      where,
+      orderBy: { criado_em: "desc" },
+      include: {
+        usuario: true,
+        descricao: true,
+        arquivos: true,
+      },
+    });
+
+    const resultado = solicitacoes.map((sol) => ({
+      id: sol.id,
+      usuario_id: sol.usuario_id,
+      solicitante_nome: sol.usuario?.nome || null,
+      solicitante_email: sol.usuario?.email || null,
+      descricao_id: sol.descricao_id,
+      descricao_nome: sol.descricao?.descricao || null,
+      numero_nf: sol.numero_nf,
+      data_nf: sol.data_nf,
+      valor_nf: sol.valor_nf,
+      emitente_nome: sol.emitente_nome,
+      emitente_doc: sol.emitente_doc,
+      beneficiario_nome: sol.beneficiario_nome,
+      beneficiario_doc: sol.beneficiario_doc,
+      status: sol.status,
+      data_solicitacao: sol.data_solicitacao,
+      criado_em: sol.criado_em,
+      atualizado_em: sol.atualizado_em,
+      arquivos: sol.arquivos || [],
+    }));
+
+    res.json(resultado);
+  } catch (err) {
+    console.error("Erro em GET /solicitacoes:", err);
+    res.status(500).json({ erro: "Erro ao buscar solicitações." });
   }
+});
 
-  const d = new Date(s);
-  if (isNaN(d.getTime())) return null;
-  return d;
-}
+// Detalhe de uma solicitação
+app.get("/solicitacoes/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const solicitacaoId = Number(id);
 
-// =========================
-// 🔰 SOLICITAÇÕES — CRIAR / ATUALIZAR
-// =========================
+    const solicitacao = await prisma.solicitacao.findUnique({
+      where: { id: solicitacaoId },
+      include: {
+        usuario: true,
+        descricao: true,
+        arquivos: true,
+      },
+    });
+
+    if (!solicitacao) {
+      return res.status(404).json({ erro: "Solicitação não encontrada." });
+    }
+
+    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a ver esta solicitação.",
+      });
+    }
+
+    const resultado = {
+      id: solicitacao.id,
+      usuario_id: solicitacao.usuario_id,
+      solicitante_nome: solicitacao.usuario?.nome || null,
+      solicitante_email: solicitacao.usuario?.email || null,
+      descricao_id: solicitacao.descricao_id,
+      descricao_nome: solicitacao.descricao?.descricao || null,
+      numero_nf: solicitacao.numero_nf,
+      data_nf: solicitacao.data_nf,
+      valor_nf: solicitacao.valor_nf,
+      emitente_nome: solicitacao.emitente_nome,
+      emitente_doc: solicitacao.emitente_doc,
+      beneficiario_nome: solicitacao.beneficiario_nome,
+      beneficiario_doc: solicitacao.beneficiario_doc,
+      status: solicitacao.status,
+      data_solicitacao: solicitacao.data_solicitacao,
+      criado_em: solicitacao.criado_em,
+      atualizado_em: solicitacao.atualizado_em,
+      arquivos: solicitacao.arquivos || [],
+    };
+
+    res.json(resultado);
+  } catch (err) {
+    console.error("Erro em GET /solicitacoes/:id:", err);
+    res.status(500).json({ erro: "Erro ao buscar solicitação." });
+  }
+});
+
+// Criar nova solicitação
 app.post("/solicitacoes", authMiddleware, async (req, res) => {
   try {
     const dados = req.body;
@@ -850,10 +783,12 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
 
     for (const campo of camposPermitidos) {
       if (!Object.prototype.hasOwnProperty.call(dados, campo)) continue;
+
+      if (campo === "usuario_id") continue;
+
       let valor = dados[campo];
 
-      if (valor === undefined || valor === "") continue;
-      if (campo === "usuario_id") continue;
+      if (valor === undefined || valor === null || valor === "") continue;
 
       if (camposNumericos.includes(campo)) {
         const num = normalizarNumero(valor);
@@ -873,39 +808,41 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
     }
 
     if (!dataCriar.status) {
-  dataCriar.status = dados.status || "Em análise";
-}
+      dataCriar.status = dados.status || "Em análise";
+    }
 
-const nova = await prisma.solicitacao.create({
-  data: dataCriar,
-});
-
-// Preferência: data enviada pelo front → data_solicitacao → agora
-const dataHistorico =
-  dados.data ||
-  dados.data_solicitacao ||
-  dataCriar.data_solicitacao ||
-  new Date();
-
-const Historico = getHistoricoModel();
-if (Historico) {
-  try {
-    await Historico.create({
-      data: {
-        solicitacao_id: nova.id,
-        status: nova.status || dataCriar.status || "Em análise",
-        data: dataHistorico,
-        origem: "Criação",
-        obs: null,
-      },
+    const nova = await prisma.solicitacao.create({
+      data: dataCriar,
     });
-  } catch (errHist) {
-    console.error("Erro ao gravar histórico inicial da solicitação:", errHist);
-  }
-}
 
-res.json(nova);
+    // 🔹 Grava histórico inicial de status ("Em análise" ou status definido)
+    const dataHistorico =
+      dados.data ||
+      dados.data_solicitacao ||
+      dataCriar.data_solicitacao ||
+      new Date();
 
+    const Historico = getHistoricoModel();
+    if (Historico) {
+      try {
+        await Historico.create({
+          data: {
+            solicitacao_id: nova.id,
+            status: nova.status || dataCriar.status || "Em análise",
+            data: dataHistorico,
+            origem: "Criação",
+            obs: null,
+          },
+        });
+      } catch (errHist) {
+        console.error(
+          "Erro ao gravar histórico inicial da solicitação:",
+          errHist
+        );
+      }
+    }
+
+    res.json(nova);
   } catch (err) {
     console.error("Erro em POST /solicitacoes:", err);
     res.status(500).json({ erro: "Erro ao criar solicitação." });
@@ -987,33 +924,33 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
     });
 
     // 🔹 Se o status mudou (via edição genérica), registra no histórico
-if (statusMudou) {
-  const Historico = getHistoricoModel();
-  if (Historico) {
-    try {
-      const dataHistorico =
-  dados.data ||
-  dados.data_solicitacao ||
-  atualizado.data_ultima_mudanca ||
-  new Date();
+    if (statusMudou) {
+      const Historico = getHistoricoModel();
+      if (Historico) {
+        try {
+          const dataHistorico =
+            dados.data ||
+            dados.data_solicitacao ||
+            atualizado.data_ultima_mudanca ||
+            new Date();
 
-await Historico.create({
-  data: {
-    solicitacao_id: solicitacaoId,
-    status: atualizado.status,
-    data: dataHistorico,
-    origem: "Edição",
-    obs: null,
-  },
-});
-    } catch (errHist) {
-      console.error(
-        "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
-        errHist
-      );
+          await Historico.create({
+            data: {
+              solicitacao_id: solicitacaoId,
+              status: atualizado.status,
+              data: dataHistorico,
+              origem: "Edição",
+              obs: null,
+            },
+          });
+        } catch (errHist) {
+          console.error(
+            "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
+            errHist
+          );
+        }
+      }
     }
-  }
-}
 
     res.json(atualizado);
   } catch (err) {
@@ -1022,9 +959,7 @@ await Historico.create({
   }
 });
 
-// =========================
-// 🔰 SOLICITAÇÕES — DELETE
-// =========================
+// Excluir solicitação
 app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
   try {
     const solicitacaoId = Number(req.params.id);
@@ -1038,9 +973,6 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
       return res.status(404).json({ erro: "Solicitação não encontrada." });
     }
 
-    // Regras:
-    // - Admin pode excluir qualquer solicitação
-    // - Usuário só pode excluir as próprias
     if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
       return res.status(403).json({
         erro: "Usuário não autorizado a excluir esta solicitação.",
@@ -1063,7 +995,6 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
       }
     }
 
-    // Deleta registros de arquivos, se o modelo existir
     if (prisma.solicitacaoArquivo?.deleteMany) {
       try {
         await prisma.solicitacaoArquivo.deleteMany({
@@ -1078,19 +1009,21 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
     }
 
     // Remove histórico de status (se o modelo existir)
-const Historico = getHistoricoModel();
-if (Historico) {
-  try {
-    await Historico.deleteMany({
-      where: { solicitacao_id: solicitacaoId },
-    });
-  } catch (e) {
-    console.error(
-      "Erro ao apagar histórico de status da solicitação (ignorando e prosseguindo):",
-      e
-    );
-  }
-}
+    {
+      const Historico = getHistoricoModel();
+      if (Historico) {
+        try {
+          await Historico.deleteMany({
+            where: { solicitacao_id: solicitacaoId },
+          });
+        } catch (e) {
+          console.error(
+            "Erro ao apagar histórico de status da solicitação (ignorando e prosseguindo):",
+            e
+          );
+        }
+      }
+    }
 
     await prisma.solicitacao.delete({
       where: { id: solicitacaoId },
@@ -1104,21 +1037,17 @@ if (Historico) {
 });
 
 // =========================
-// 🔰 UPLOAD DE ARQUIVOS
+// 🔰 UPLOAD & DOWNLOAD DE ARQUIVOS
 // =========================
+
+// Upload de arquivos vinculados à solicitação
 app.post(
   "/solicitacoes/:id/arquivos",
   authMiddleware,
-  upload.single("file"), // ou "arquivo", conforme está no frontend
+  upload.array("arquivos", 10),
   async (req, res) => {
     try {
       const solicitacaoId = Number(req.params.id);
-      const { tipo } = req.body;
-      const file = req.file;
-
-      if (!file) {
-        return res.status(400).json({ erro: "Nenhum arquivo enviado." });
-      }
 
       const solicitacao = await prisma.solicitacao.findUnique({
         where: { id: solicitacaoId },
@@ -1128,196 +1057,203 @@ app.post(
         return res.status(404).json({ erro: "Solicitação não encontrada." });
       }
 
-      // Segurança: admin pode tudo, usuário só na própria solicitação
-      if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
+      if (
+        req.user.tipo !== "admin" &&
+        solicitacao.usuario_id !== req.user.id
+      ) {
         return res.status(403).json({
-          erro: "Usuário não autorizado a anexar arquivos nesta solicitação.",
+          erro: "Usuário não autorizado a enviar arquivos para esta solicitação.",
         });
       }
 
-      const Arquivos = getArquivosModel();
-      if (!Arquivos) {
-        return res
-          .status(500)
-          .json({ erro: "Modelo de anexos não configurado na API." });
+      const arquivosSub = req.files || [];
+
+      const ArquivosModel = getArquivosModel();
+      if (!ArquivosModel) {
+        return res.status(500).json({
+          erro: "Modelo de anexos não configurado no servidor.",
+        });
       }
 
-      // 🔁 Tenta com todos os campos; se der erro de schema, tenta com o mínimo
-      let registro;
-      try {
-        registro = await Arquivos.create({
+      const registros = [];
+      for (const file of arquivosSub) {
+        const registro = await ArquivosModel.create({
           data: {
             solicitacao_id: solicitacaoId,
-            tipo: tipo || "outro",
-            original_name: file.originalname,
+            nome_original: file.originalname,
+            path: file.filename,
+            tamanho_bytes: file.size,
             mime_type: file.mimetype,
-            path: file.filename,
           },
         });
-      } catch (errPrisma) {
-        console.error(
-          "Falha ao criar registro de anexo com todos os campos, tentando apenas campos mínimos:",
-          errPrisma
-        );
-        registro = await Arquivos.create({
-          data: {
-            solicitacao_id: solicitacaoId,
-            original_name: file.originalname,
-            path: file.filename,
-          },
+        registros.push(registro);
+      }
+
+      res.json({
+        mensagem: "Arquivos enviados com sucesso.",
+        arquivos: registros,
+      });
+    } catch (err) {
+      console.error(
+        "Erro em POST /solicitacoes/:id/arquivos:",
+        err
+      );
+      res.status(500).json({ erro: "Erro ao enviar arquivos." });
+    }
+  }
+);
+
+// Listar arquivos de uma solicitação
+app.get(
+  "/solicitacoes/:id/arquivos",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const solicitacaoId = Number(req.params.id);
+
+      const solicitacao = await prisma.solicitacao.findUnique({
+        where: { id: solicitacaoId },
+      });
+
+      if (!solicitacao) {
+        return res.status(404).json({ erro: "Solicitação não encontrada." });
+      }
+
+      if (
+        req.user.tipo !== "admin" &&
+        solicitacao.usuario_id !== req.user.id
+      ) {
+        return res.status(403).json({
+          erro: "Usuário não autorizado a ver arquivos desta solicitação.",
         });
       }
 
-      res.json(registro);
-    } catch (err) {
-      console.error("Erro em POST /solicitacoes/:id/arquivos:", err);
-      res.status(500).json({
-        erro: "Erro ao enviar arquivo.",
-        detalhe: err?.message || String(err),
+      const ArquivosModel = getArquivosModel();
+      if (!ArquivosModel) {
+        return res.json([]);
+      }
+
+      const arquivos = await ArquivosModel.findMany({
+        where: { solicitacao_id: solicitacaoId },
+        orderBy: { id: "asc" },
       });
+
+      res.json(arquivos);
+    } catch (err) {
+      console.error(
+        "Erro em GET /solicitacoes/:id/arquivos:",
+        err
+      );
+      res.status(500).json({ erro: "Erro ao buscar arquivos." });
+    }
+  }
+);
+
+// Baixar arquivo específico
+app.get(
+  "/arquivos/:id/download",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const arquivoId = Number(req.params.id);
+
+      const ArquivosModel = getArquivosModel();
+      if (!ArquivosModel) {
+        return res.status(404).json({ erro: "Modelo de anexos não encontrado." });
+      }
+
+      const arquivo = await ArquivosModel.findUnique({
+        where: { id: arquivoId },
+        include: { solicitacao: true },
+      });
+
+      if (!arquivo) {
+        return res.status(404).json({ erro: "Arquivo não encontrado." });
+      }
+
+      if (
+        req.user.tipo !== "admin" &&
+        arquivo.solicitacao.usuario_id !== req.user.id
+      ) {
+        return res.status(403).json({
+          erro: "Usuário não autorizado a baixar este arquivo.",
+        });
+      }
+
+      const fullPath = path.join(uploadDir, arquivo.path);
+
+      if (!fs.existsSync(fullPath)) {
+        return res.status(404).json({
+          erro: "Arquivo físico não encontrado no servidor.",
+        });
+      }
+
+      res.download(fullPath, arquivo.nome_original || "arquivo");
+    } catch (err) {
+      console.error("Erro em GET /arquivos/:id/download:", err);
+      res.status(500).json({ erro: "Erro ao baixar arquivo." });
+    }
+  }
+);
+
+// Deletar arquivo específico
+app.delete(
+  "/arquivos/:id",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const arquivoId = Number(req.params.id);
+
+      const ArquivosModel = getArquivosModel();
+      if (!ArquivosModel) {
+        return res.status(404).json({ erro: "Modelo de anexos não encontrado." });
+      }
+
+      const arquivo = await ArquivosModel.findUnique({
+        where: { id: arquivoId },
+        include: { solicitacao: true },
+      });
+
+      if (!arquivo) {
+        return res.status(404).json({ erro: "Arquivo não encontrado." });
+      }
+
+      if (
+        req.user.tipo !== "admin" &&
+        arquivo.solicitacao.usuario_id !== req.user.id
+      ) {
+        return res.status(403).json({
+          erro: "Usuário não autorizado a excluir este arquivo.",
+        });
+      }
+
+      const fullPath = path.join(uploadDir, arquivo.path);
+
+      try {
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+        }
+      } catch (e) {
+        console.error(
+          `Erro ao remover arquivo físico (id=${arquivo.id}, path=${arquivo.path}):`,
+          e
+        );
+      }
+
+      await ArquivosModel.delete({
+        where: { id: arquivoId },
+      });
+
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Erro em DELETE /arquivos/:id:", err);
+      res.status(500).json({ erro: "Erro ao excluir arquivo." });
     }
   }
 );
 
 // =========================
-// 🔰 LISTAR ARQUIVOS
-// =========================
-app.get("/solicitacoes/:id/arquivos", authMiddleware, async (req, res) => {
-  try {
-    const solicitacaoId = Number(req.params.id);
-
-    const solicitacao = await prisma.solicitacao.findUnique({
-      where: { id: solicitacaoId },
-    });
-
-    if (!solicitacao) {
-      return res.status(404).json({ erro: "Solicitação não encontrada." });
-    }
-
-    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
-      return res.status(403).json({
-        erro: "Usuário não autorizado a visualizar arquivos desta solicitação.",
-      });
-    }
-
-    const Arquivos = getArquivosModel();
-    if (!Arquivos) {
-      return res
-        .status(500)
-        .json({ erro: "Modelo de anexos não configurado na API." });
-    }
-
-    const arquivos = await Arquivos.findMany({
-      where: { solicitacao_id: solicitacaoId },
-      orderBy: { created_at: "desc" },
-    });
-
-    res.json(arquivos);
-  } catch (err) {
-    console.error("Erro em GET /solicitacoes/:id/arquivos:", err);
-    res.status(500).json({ erro: "Erro ao listar arquivos." });
-  }
-});
-
-// =========================
-// 🔰 DOWNLOAD ARQUIVO
-// =========================
-app.get("/arquivos/:id/download", authMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const Arquivos = getArquivosModel();
-    if (!Arquivos) {
-      return res
-        .status(500)
-        .json({ erro: "Modelo de anexos não configurado na API." });
-    }
-
-    const arquivo = await Arquivos.findUnique({
-      where: { id: Number(id) },
-    });
-
-    if (!arquivo) {
-      return res.status(404).json({ erro: "Arquivo não encontrado." });
-    }
-
-    const solicitacao = await prisma.solicitacao.findUnique({
-      where: { id: arquivo.solicitacao_id },
-    });
-
-    if (!solicitacao) {
-      return res.status(404).json({ erro: "Solicitação não encontrada." });
-    }
-
-    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
-      return res.status(403).json({
-        erro: "Usuário não autorizado a baixar este arquivo.",
-      });
-    }
-
-    const fullPath = path.join(uploadDir, arquivo.path);
-
-    if (!fs.existsSync(fullPath)) {
-      return res
-        .status(410)
-        .json({ erro: "Arquivo não está mais disponível." });
-    }
-
-    res.download(fullPath, arquivo.original_name);
-  } catch (err) {
-    console.error("Erro em GET /arquivos/:id/download:", err);
-    res.status(500).json({ erro: "Erro ao fazer download do arquivo." });
-  }
-});
-
-// =========================
-// 🔰 REMOVER ARQUIVO
-// =========================
-app.delete("/arquivos/:id", authMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const arquivo = await prisma.solicitacaoArquivo.findUnique({
-      where: { id: Number(id) },
-    });
-
-    if (!arquivo) {
-      return res.status(404).json({ erro: "Arquivo não encontrado." });
-    }
-
-    const solicitacao = await prisma.solicitacao.findUnique({
-      where: { id: arquivo.solicitacao_id },
-    });
-
-    if (!solicitacao) {
-      return res.status(404).json({ erro: "Solicitação não encontrada." });
-    }
-
-    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
-      return res.status(403).json({
-        erro: "Usuário não autorizado a remover este arquivo.",
-      });
-    }
-
-    const fullPath = path.join(uploadDir, arquivo.path);
-
-    if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
-    }
-
-    await prisma.solicitacaoArquivo.delete({
-      where: { id: Number(id) },
-    });
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("Erro em DELETE /arquivos/:id:", err);
-    res.status(500).json({ erro: "Erro ao remover arquivo." });
-  }
-});
-
-// =========================
-// 🔰 HISTÓRICO DE STATUS (por solicitação / global)
+// 🔰 HISTÓRICO POR SOLICITAÇÃO
 // =========================
 app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
   try {
@@ -1339,14 +1275,14 @@ app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
     }
 
     const Historico = getHistoricoModel();
-if (!Historico) {
-  return res.json([]);
-}
+    if (!Historico) {
+      return res.json([]);
+    }
 
-const lista = await Historico.findMany({
-  where: { solicitacao_id: solicitacaoId },
-  orderBy: { data: "desc" },
-});
+    const lista = await Historico.findMany({
+      where: { solicitacao_id: solicitacaoId },
+      orderBy: { data: "desc" },
+    });
 
     res.json(lista);
   } catch (err) {
@@ -1363,14 +1299,14 @@ app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) 
     const { id } = req.params;
     const { status, origem, obs } = req.body;
 
-// Se o status for "Aguardando documento", obs é obrigatória
-if (status === "Aguardando documento") {
-  if (!obs || String(obs).trim() === "") {
-    return res.status(400).json({
-      erro: "Campo 'obs' é obrigatório quando o status é 'Aguardando documento'.",
-    });
-  }
-}
+    // Se o status for "Aguardando documento", 'obs' é obrigatória
+    if (status === "Aguardando documento") {
+      if (!obs || String(obs).trim() === "") {
+        return res.status(400).json({
+          erro: "Campo 'obs' é obrigatório quando o status é 'Aguardando documento'.",
+        });
+      }
+    }
 
     const statusList = await prisma.status.findMany({
       where: { ativo: true },
@@ -1393,23 +1329,25 @@ if (status === "Aguardando documento") {
       },
     });
 
-    const Historico = getHistoricoModel();
-if (Historico) {
-  const dataHistorico =
-  req.body.data ||
-  req.body.data_solicitacao ||
-  new Date();
+    {
+      const Historico = getHistoricoModel();
+      if (Historico) {
+        const dataHistorico =
+          req.body.data ||
+          req.body.data_solicitacao ||
+          new Date();
 
-await Historico.create({
-  data: {
-    solicitacao_id: Number(id),
-    status,
-    data: dataHistorico,
-    origem: origem || "Sistema",
-    obs: obs || null,
-  },
-});
-}
+        await Historico.create({
+          data: {
+            solicitacao_id: Number(id),
+            status,
+            data: dataHistorico,
+            origem: origem || "Sistema",
+            obs: obs || null,
+          },
+        });
+      }
+    }
 
     res.json({ ok: true, atualizado });
   } catch (err) {
@@ -1423,40 +1361,51 @@ await Historico.create({
 // =========================
 app.get("/kanban", authMiddleware, adminOnly, async (req, res) => {
   try {
-    const statusList = await prisma.status.findMany({
-      where: { ativo: true },
-      orderBy: { id: "asc" },
-    });
-
     const solicitacoes = await prisma.solicitacao.findMany({
-      orderBy: { criado_em: "desc" },
+      orderBy: { criado_em: "asc" },
       include: {
-        arquivos: true,
         usuario: true,
+        descricao: true,
       },
     });
 
-    const grupos = {};
-    statusList.forEach((s) => {
-      grupos[s.nome] = [];
-    });
+    const colunas = {};
 
-    solicitacoes
-      .map(mapSolicitacaoComSolicitante)
-      .forEach((s) => {
-        if (!grupos[s.status]) grupos[s.status] = [];
-        grupos[s.status].push(s);
+    for (const sol of solicitacoes) {
+      const statusColuna = sol.status || "Sem status";
+      if (!colunas[statusColuna]) {
+        colunas[statusColuna] = [];
+      }
+
+      colunas[statusColuna].push({
+        id: sol.id,
+        usuario_id: sol.usuario_id,
+        solicitante_nome: sol.usuario?.nome || null,
+        descricao_id: sol.descricao_id,
+        descricao_nome: sol.descricao?.descricao || null,
+        numero_nf: sol.numero_nf,
+        data_nf: sol.data_nf,
+        valor_nf: sol.valor_nf,
+        emitente_nome: sol.emitente_nome,
+        emitente_doc: sol.emitente_doc,
+        beneficiario_nome: sol.beneficiario_nome,
+        beneficiario_doc: sol.beneficiario_doc,
+        status: sol.status,
+        data_solicitacao: sol.data_solicitacao,
+        criado_em: sol.criado_em,
+        atualizado_em: sol.atualizado_em,
       });
+    }
 
-    res.json(grupos);
+    res.json(colunas);
   } catch (err) {
     console.error("Erro em GET /kanban:", err);
-    res.status(500).json({ erro: "Erro ao buscar dados do Kanban." });
+    res.status(500).json({ erro: "Erro ao carregar kanban." });
   }
 });
 
 // =========================
-// 🔰 DASHBOARD
+// 🔰 DASHBOARD (ADMIN)
 // =========================
 app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
   try {
@@ -1481,7 +1430,26 @@ app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
       },
     });
 
-    const ultimas = ultimasRaw.map(mapSolicitacaoComSolicitante);
+    const ultimas = ultimasRaw.map((sol) => ({
+      id: sol.id,
+      usuario_id: sol.usuario_id,
+      solicitante_nome: sol.usuario?.nome || null,
+      solicitante_email: sol.usuario?.email || null,
+      descricao_id: sol.descricao_id,
+      descricao_nome: sol.descricao?.descricao || null,
+      numero_nf: sol.numero_nf,
+      data_nf: sol.data_nf,
+      valor_nf: sol.valor_nf,
+      emitente_nome: sol.emitente_nome,
+      emitente_doc: sol.emitente_doc,
+      beneficiario_nome: sol.beneficiario_nome,
+      beneficiario_doc: sol.beneficiario_doc,
+      status: sol.status,
+      data_solicitacao: sol.data_solicitacao,
+      criado_em: sol.criado_em,
+      atualizado_em: sol.atualizado_em,
+      arquivos: sol.arquivos || [],
+    }));
 
     res.json({
       totalSolicitacoes,
@@ -1490,7 +1458,7 @@ app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
     });
   } catch (err) {
     console.error("Erro em GET /dashboard:", err);
-    res.status(500).json({ erro: "Erro ao montar dashboard." });
+    res.status(500).json({ erro: "Erro ao carregar dashboard." });
   }
 });
 
@@ -1500,13 +1468,13 @@ app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
 app.get("/historico", authMiddleware, adminOnly, async (req, res) => {
   try {
     const Historico = getHistoricoModel();
-if (!Historico) {
-  return res.json([]);
-}
+    if (!Historico) {
+      return res.json([]);
+    }
 
-const lista = await Historico.findMany({
-  orderBy: { data: "desc" },
-});
+    const lista = await Historico.findMany({
+      orderBy: { data: "desc" },
+    });
 
     res.json(lista);
   } catch (err) {
@@ -1520,84 +1488,85 @@ const lista = await Historico.findMany({
 // =========================
 app.get("/relatorios/irpf", authMiddleware, adminOnly, async (req, res) => {
   try {
-    const dados = await prisma.solicitacao.findMany({
-      orderBy: { criado_em: "desc" },
-      include: {
-        arquivos: true,
-      },
+    const solicitacoes = await prisma.solicitacao.findMany({
+      orderBy: { data_nf: "asc" },
     });
 
-    const resultado = dados.map((s) => ({
-      id: s.id,
-      solicitante_id: s.usuario_id,
-      beneficiario_nome: s.beneficiario_nome,
-      beneficiario_doc: s.beneficiario_doc,
-      numero_nf: s.numero_nf,
-      data_nf: s.data_nf,
-      valor_nf: s.valor_nf,
-      emitente_nome: s.emitente_nome,
-      emitente_doc: s.emitente_doc,
-      status: s.status,
-      data_pagamento: s.data_pagamento,
-      valor_reembolso: s.valor_reembolso,
-      criado_em: s.criado_em,
-    }));
+    const linhas = solicitacoes.map((s) => {
+      const dataNF = s.data_nf
+        ? new Date(s.data_nf).toISOString().slice(0, 10)
+        : "";
 
-    res.json(resultado);
+      const valor = s.valor_nf != null ? s.valor_nf.toFixed(2) : "";
+
+      return [
+        s.id,
+        s.numero_nf || "",
+        dataNF,
+        valor,
+        s.emitente_nome || "",
+        s.emitente_doc || "",
+        s.beneficiario_nome || "",
+        s.beneficiario_doc || "",
+        s.status || "",
+      ].join(";");
+    });
+
+    const cabecalho = [
+      "ID",
+      "Numero NF",
+      "Data NF",
+      "Valor NF",
+      "Emitente Nome",
+      "Emitente Doc",
+      "Beneficiario Nome",
+      "Beneficiario Doc",
+      "Status",
+    ].join(";");
+
+    const conteudo = [cabecalho, ...linhas].join("\n");
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="relatorio_irpf.csv"'
+    );
+
+    res.send(conteudo);
   } catch (err) {
     console.error("Erro em GET /relatorios/irpf:", err);
-    res.status(500).json({ erro: "Erro ao gerar relatório." });
+    res.status(500).json({ erro: "Erro ao gerar relatório IRPF." });
   }
 });
 
 // =========================
-// 🔰 ESTRUTURA DO BANCO (TXT)
+// 🔰 CONFIGURAÇÕES / DEBUG DO BANCO
 // =========================
+
+// Listar estrutura básica do banco (tabelas principais)
 app.get("/config/estrutura-banco", authMiddleware, adminOnly, async (req, res) => {
   try {
-    const result = await prisma.$queryRawUnsafe(`
-      SELECT table_name, column_name, data_type, is_nullable
-      FROM information_schema.columns
-      WHERE table_schema = 'public'
-      ORDER BY table_name, ordinal_position;
-    `);
+    const tabelas = [
+      "usuario",
+      "descricao",
+      "status",
+      "solicitacao",
+      "SolicitacaoStatusHistory (tabela solicitacao_status_history)",
+    ];
 
-    let txt = "Controle de Reembolso – Estrutura do Banco de Dados\n";
-    txt += `Gerado em: ${new Date().toLocaleString()}\n\n`;
-
-    let tabelaAtual = null;
-
-    for (const row of result) {
-      if (tabelaAtual !== row.table_name) {
-        tabelaAtual = row.table_name;
-        txt += `TABELA ${tabelaAtual}\n`;
-      }
-      txt += `- ${row.column_name} ${row.data_type} ${
-        row.is_nullable === "NO" ? "NOT NULL" : ""
-      }\n`;
-    }
-
-    const filePath = path.join(__dirname, "estrutura_banco.txt");
-    fs.writeFileSync(filePath, txt);
-
-    res.download(filePath, "estrutura_banco.txt");
+    res.json({
+      banco: process.env.DATABASE_URL || "N/D",
+      tabelas,
+    });
   } catch (err) {
-    console.error("Erro em /config/estrutura-banco:", err);
-    res.status(500).json({ erro: "Erro ao gerar estrutura do banco." });
+    console.error("Erro em GET /config/estrutura-banco:", err);
+    res.status(500).json({ erro: "Erro ao obter estrutura do banco." });
   }
 });
 
 // =========================
-// 🔰 MIDDLEWARE DE ERRO GLOBAL
-// =========================
-app.use((err, req, res, next) => {
-  console.error("Erro interno não tratado:", err);
-  res.status(500).json({ error: "Erro interno do servidor" });
-});
-
-// =========================
-// 🔰 INICIAR SERVIDOR
+// 🔰 INICIALIZAÇÃO DO SERVIDOR
 // =========================
 app.listen(PORT, () => {
-  console.log(`🚀 API Reembolso rodando na porta ${PORT}`);
+  console.log(`API Reembolso rodando na porta ${PORT}.`);
 });
