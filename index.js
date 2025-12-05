@@ -878,8 +878,8 @@ const nova = await prisma.solicitacao.create({
 
 // Preferência: data enviada pelo front → data_solicitacao → agora
 const dataHistorico =
-  dados.data ||
-  dados.data_solicitacao ||
+  normalizarData(dados.data) ||
+  normalizarData(dados.data_solicitacao) ||
   dataCriar.data_solicitacao ||
   new Date();
 
@@ -987,11 +987,11 @@ if (statusMudou) {
   const Historico = getHistoricoModel();
   if (Historico) {
     try {
-      const dataHistorico =
-  dados.data ||
-  dados.data_solicitacao ||
-  atualizado.data_ultima_mudanca ||
-  new Date();
+            const dataHistorico =
+        normalizarData(dados.data) ||
+        normalizarData(dados.data_solicitacao) ||
+        atualizado.data_ultima_mudanca ||
+        new Date();
 
 await Historico.create({
   data: {
@@ -1391,10 +1391,10 @@ if (status === "Aguardando documento") {
 
     const Historico = getHistoricoModel();
 if (Historico) {
-  const dataHistorico =
-  req.body.data ||
-  req.body.data_solicitacao ||
-  new Date();
+      const dataHistorico =
+      normalizarData(req.body.data) ||
+      normalizarData(req.body.data_solicitacao) ||
+      new Date();
 
 await Historico.create({
   data: {
