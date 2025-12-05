@@ -18,6 +18,23 @@ const fs = require("fs");
 const app = express();
 const prisma = new PrismaClient();
 
+// Helper para acessar o modelo de anexos, qualquer que seja o nome no Prisma
+const arquivosModel =
+  prisma.solicitacao_arquivos ||      // ex: model Solicitacao_arquivos
+  prisma.solicitacaoArquivos ||       // ex: model SolicitacaoArquivos
+  prisma.arquivo ||                   // ex: model Arquivo
+  prisma.arquivos ||                  // ex: model Arquivos
+  null;
+
+function getArquivosModel() {
+  if (!arquivosModel) {
+    console.error(
+      "Modelo de anexos (solicitacao_arquivos / solicitacaoArquivos / arquivo) não encontrado no Prisma Client."
+    );
+  }
+  return arquivosModel;
+}
+
 const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const APP_BASE_URL = process.env.APP_BASE_URL || "";
@@ -1017,7 +1034,7 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
 app.post(
   "/solicitacoes/:id/arquivos",
   authMiddleware,
-  upload.single("file"),
+  upload.single("file"), // ou "arquivo", conforme está no frontend
   async (req, res) => {
     try {
       const solicitacaoId = Number(req.params.id);
@@ -1036,15 +1053,24 @@ app.post(
         return res.status(404).json({ erro: "Solicitação não encontrada." });
       }
 
+      // Segurança: admin pode tudo, usuário só na própria solicitação
       if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
         return res.status(403).json({
           erro: "Usuário não autorizado a anexar arquivos nesta solicitação.",
         });
       }
 
+      const Arquivos = getArquivosModel();
+      if (!Arquivos) {
+        return res
+          .status(500)
+          .json({ erro: "Modelo de anexos não configurado na API." });
+      }
+
+      // 🔁 Tenta com todos os campos; se der erro de schema, tenta com o mínimo
       let registro;
       try {
-        registro = await prisma.solicitacao_arquivos.create({
+        registro = await Arquivos.create({
           data: {
             solicitacao_id: solicitacaoId,
             tipo: tipo || "outro",
@@ -1055,10 +1081,10 @@ app.post(
         });
       } catch (errPrisma) {
         console.error(
-          "Falha ao criar solicitacao_arquivos com todos os campos, tentando apenas campos mínimos:",
+          "Falha ao criar registro de anexo com todos os campos, tentando apenas campos mínimos:",
           errPrisma
         );
-        registro = await prisma.solicitacao_arquivos.create({
+        registro = await Arquivos.create({
           data: {
             solicitacao_id: solicitacaoId,
             original_name: file.originalname,
@@ -1099,7 +1125,14 @@ app.get("/solicitacoes/:id/arquivos", authMiddleware, async (req, res) => {
       });
     }
 
-    const arquivos = await prisma.solicitacao_arquivos.findMany({
+    const Arquivos = getArquivosModel();
+    if (!Arquivos) {
+      return res
+        .status(500)
+        .json({ erro: "Modelo de anexos não configurado na API." });
+    }
+
+    const arquivos = await Arquivos.findMany({
       where: { solicitacao_id: solicitacaoId },
       orderBy: { created_at: "desc" },
     });
@@ -1118,7 +1151,14 @@ app.get("/arquivos/:id/download", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const arquivo = await prisma.solicitacao_arquivos.findUnique({
+    const Arquivos = getArquivosModel();
+    if (!Arquivos) {
+      return res
+        .status(500)
+        .json({ erro: "Modelo de anexos não configurado na API." });
+    }
+
+    const arquivo = await Arquivos.findUnique({
       where: { id: Number(id) },
     });
 
@@ -1143,7 +1183,9 @@ app.get("/arquivos/:id/download", authMiddleware, async (req, res) => {
     const fullPath = path.join(uploadDir, arquivo.path);
 
     if (!fs.existsSync(fullPath)) {
-      return res.status(410).json({ erro: "Arquivo não está mais disponível." });
+      return res
+        .status(410)
+        .json({ erro: "Arquivo não está mais disponível." });
     }
 
     res.download(fullPath, arquivo.original_name);
