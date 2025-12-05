@@ -880,7 +880,13 @@ const nova = await prisma.solicitacao.create({
   data: dataCriar,
 });
 
-// 🔹 Grava histórico inicial de status ("Em análise" ou status definido)
+// Preferência: data enviada pelo front → data_solicitacao → agora
+const dataHistorico =
+  dados.data ||
+  dados.data_solicitacao ||
+  dataCriar.data_solicitacao ||
+  new Date();
+
 const Historico = getHistoricoModel();
 if (Historico) {
   try {
@@ -888,7 +894,7 @@ if (Historico) {
       data: {
         solicitacao_id: nova.id,
         status: nova.status || dataCriar.status || "Em análise",
-        data: new Date(),
+        data: dataHistorico,
         origem: "Criação",
         obs: null,
       },
@@ -985,15 +991,21 @@ if (statusMudou) {
   const Historico = getHistoricoModel();
   if (Historico) {
     try {
-      await Historico.create({
-        data: {
-          solicitacao_id: solicitacaoId,
-          status: atualizado.status,
-          data: new Date(),
-          origem: "Edição",
-          obs: null,
-        },
-      });
+      const dataHistorico =
+  dados.data ||
+  dados.data_solicitacao ||
+  atualizado.data_ultima_mudanca ||
+  new Date();
+
+await Historico.create({
+  data: {
+    solicitacao_id: solicitacaoId,
+    status: atualizado.status,
+    data: dataHistorico,
+    origem: "Edição",
+    obs: null,
+  },
+});
     } catch (errHist) {
       console.error(
         "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
@@ -1351,6 +1363,15 @@ app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) 
     const { id } = req.params;
     const { status, origem, obs } = req.body;
 
+// Se o status for "Aguardando documento", obs é obrigatória
+if (status === "Aguardando documento") {
+  if (!obs || String(obs).trim() === "") {
+    return res.status(400).json({
+      erro: "Campo 'obs' é obrigatório quando o status é 'Aguardando documento'.",
+    });
+  }
+}
+
     const statusList = await prisma.status.findMany({
       where: { ativo: true },
       orderBy: { id: "asc" },
@@ -1374,15 +1395,20 @@ app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) 
 
     const Historico = getHistoricoModel();
 if (Historico) {
-  await Historico.create({
-    data: {
-      solicitacao_id: Number(id),
-      status,
-      data: new Date(),
-      origem: origem || "Sistema",
-      obs: obs || null,
-    },
-  });
+  const dataHistorico =
+  req.body.data ||
+  req.body.data_solicitacao ||
+  new Date();
+
+await Historico.create({
+  data: {
+    solicitacao_id: Number(id),
+    status,
+    data: dataHistorico,
+    origem: origem || "Sistema",
+    obs: obs || null,
+  },
+});
 }
 
     res.json({ ok: true, atualizado });
