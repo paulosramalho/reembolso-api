@@ -995,10 +995,14 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
 
           // 👉 data do movimento: usa data_ultima_mudanca (que acabou de ser setada)
           // se por algum motivo não vier, cai pra data normalizada ou "agora"
-          const dataHistorico =
-            atualizado.data_ultima_mudanca ||
-            normalizarData(dados.data) ||
-            new Date();
+                const dataHistorico =
+        normalizarData(dados.data) ||                 // se o front enviar "data"
+        normalizarData(dados.data_solicitacao) ||     // ou "data_solicitacao"
+        normalizarData(dados.data_nf) ||              // ou "data_nf"
+        existente.data_solicitacao ||                 // senão, cai na data da solicitação
+        existente.data_nf ||
+        atualizado.data_ultima_mudanca ||             // só em último caso, a data do movimento
+        new Date();
 
           await Historico.create({
             data: {
@@ -1399,10 +1403,14 @@ if (status === "Aguardando documento") {
     const Historico = getHistoricoModel();
     if (Historico) {
       // 👉 sempre prioriza a data da última mudança (data real do movimento)
-      const dataHistorico =
-        atualizado.data_ultima_mudanca ||
-        normalizarData(req.body.data) ||
-        new Date();
+        const dataHistorico =
+    normalizarData(req.body.data) ||              // se o Kanban/front mandar uma data
+    normalizarData(req.body.data_solicitacao) ||
+    normalizarData(req.body.data_nf) ||
+    atualizado.data_solicitacao ||               // senão, usa a data da solicitação
+    atualizado.data_nf ||
+    atualizado.data_ultima_mudanca ||            // e só no fim, “agora”
+    new Date();
 
       await Historico.create({
         data: {
