@@ -20,7 +20,7 @@ const prisma = new PrismaClient();
 
 // Helper para acessar o modelo de anexos, qualquer que seja o nome no Prisma
 const arquivosModel =
-  prisma.solicitacao_arquivos ||      // ex: model Solicitacao_arquivos
+  prisma.solicitacaoArquivo ||      // ex: model Solicitacao_arquivos
   prisma.solicitacaoArquivos ||       // ex: model SolicitacaoArquivos
   prisma.arquivo ||                   // ex: model Arquivo
   prisma.arquivos ||                  // ex: model Arquivos
@@ -986,9 +986,9 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
     }
 
     // Deleta registros de arquivos, se o modelo existir
-    if (prisma.solicitacao_arquivos?.deleteMany) {
+    if (prisma.solicitacaoArquivo?.deleteMany) {
       try {
-        await prisma.solicitacao_arquivos.deleteMany({
+        await prisma.solicitacaoArquivo.deleteMany({
           where: { solicitacao_id: solicitacaoId },
         });
       } catch (e) {
@@ -1202,7 +1202,7 @@ app.delete("/arquivos/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const arquivo = await prisma.solicitacao_arquivos.findUnique({
+    const arquivo = await prisma.solicitacaoArquivo.findUnique({
       where: { id: Number(id) },
     });
 
@@ -1230,7 +1230,7 @@ app.delete("/arquivos/:id", authMiddleware, async (req, res) => {
       fs.unlinkSync(fullPath);
     }
 
-    await prisma.solicitacao_arquivos.delete({
+    await prisma.solicitacaoArquivo.delete({
       where: { id: Number(id) },
     });
 
