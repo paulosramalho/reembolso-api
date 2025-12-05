@@ -448,6 +448,7 @@ function mapSolicitacaoComSolicitante(s) {
     s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
 
   const arquivosArray = s.arquivos || s.solicitacao_arquivos || [];
+
   const count = arquivosArray.length;
 
   return {
@@ -1044,20 +1045,39 @@ app.post(
         });
       }
 
-      const registro = await prisma.solicitacao_arquivos.create({
-        data: {
-          solicitacao_id: solicitacaoId,
-          tipo: tipo || "outro",
-          original_name: file.originalname,
-          mime_type: file.mimetype,
-          path: file.filename,
-        },
-      });
+      let registro;
+      try {
+        // Tentativa completa (incluindo campos opcionais)
+        registro = await prisma.solicitacao_arquivos.create({
+          data: {
+            solicitacao_id: solicitacaoId,
+            tipo: tipo || "outro",
+            original_name: file.originalname,
+            mime_type: file.mimetype,
+            path: file.filename,
+          },
+        });
+      } catch (errPrisma) {
+        console.error(
+          "Primeira tentativa de criar solicitacao_arquivos falhou, tentando com campos mínimos:",
+          errPrisma
+        );
+        // Fallback: apenas campos essenciais já existentes no banco
+        registro = await prisma.solicitacao_arquivos.create({
+          data: {
+            solicitacao_id: solicitacaoId,
+            original_name: file.originalname,
+            path: file.filename,
+          },
+        });
+      }
 
       res.json(registro);
     } catch (err) {
       console.error("Erro em POST /solicitacoes/:id/arquivos:", err);
-      res.status(500).json({ erro: "Erro ao enviar arquivo." });
+      const msg =
+        err && err.message ? String(err.message) : "Erro interno ao enviar arquivo.";
+      res.status(500).json({ erro: "Erro ao enviar arquivo.", detalhe: msg });
     }
   }
 );
