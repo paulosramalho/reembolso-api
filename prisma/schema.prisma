@@ -1,4 +1,4 @@
-// api/prisma/schema.prisma
+// api/prisma/schema.prisma - 05/12/25 - 01:52h
 
 generator client {
   provider = "prisma-client-js"
@@ -63,6 +63,19 @@ model Solicitacao {
   statusHistory       SolicitacaoStatusHistory[]
 
   @@map("solicitacoes")
+}
+
+model SolicitacaoStatusHistory {
+  id             Int         @id @default(autoincrement())
+  solicitacao_id Int
+  status         String
+  data           DateTime    @default(now())
+  origem         String?     @db.VarChar(100)
+  obs            String?
+
+  solicitacao    Solicitacao @relation(fields: [solicitacao_id], references: [id])
+
+  @@map("solicitacao_status_history")
 }
 
 // ─────────────────────────────────────────────

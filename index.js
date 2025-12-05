@@ -1,4 +1,4 @@
-// index.js — API Reembolso COMPLETA e ATUALIZADA 05/12/25
+// index.js — API Reembolso COMPLETA e ATUALIZADA 05/12/25 - 01:52h
 // Compatível com o schema/prisma atual e com o front (forma da resposta do login).
 
 // =========================
