@@ -945,22 +945,29 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// ❌ EXCLUIR SOLICITAÇÃO (com arquivos + histórico)
-// Admin: pode excluir qualquer uma
-// Usuário comum: só pode excluir a própria
+// ❌ EXCLUIR SOLICITAÇÃO (com remoção de anexos e histórico)
+// Regra:
+// - admin pode excluir qualquer solicitação
+// - usuário comum só pode excluir as próprias
 app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
   try {
     const solicitacaoId = Number(req.params.id);
 
+    if (!solicitacaoId || Number.isNaN(solicitacaoId)) {
+      return res.status(400).json({ erro: "ID inválido." });
+    }
+
+    // Busca a solicitação com os arquivos relacionados
     const solicitacao = await prisma.solicitacao.findUnique({
       where: { id: solicitacaoId },
+      include: { arquivos: true },
     });
 
     if (!solicitacao) {
       return res.status(404).json({ erro: "Solicitação não encontrada." });
     }
 
-    // Regra de permissão:
+    // Permissões:
     // - admin pode tudo
     // - user só se for dono da solicitação
     if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
@@ -969,14 +976,12 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
       });
     }
 
-    // 1) Buscar arquivos vinculados para apagar do disco
-    const arquivos = await prisma.solicitacao_arquivos.findMany({
-      where: { solicitacao_id: solicitacaoId },
-    });
-
+    // Remove arquivos físicos do disco
+    const arquivos = solicitacao.arquivos || [];
     for (const arq of arquivos) {
+      if (!arq.path) continue;
       const fullPath = path.join(uploadDir, arq.path);
-      if (fs.existsSync(fullPath)) {
+      if (fs.existsExists(fullPath)) {
         try {
           fs.unlinkSync(fullPath);
         } catch (e) {
@@ -985,17 +990,16 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
       }
     }
 
-    // 2) Remover registros de arquivos no banco
-    await prisma.solicitacao_arquivos.deleteMany({
-      where: { solicitacao_id: solicitacaoId },
-    });
+    // Remove histórico de status vinculado
+    try {
+      await prisma.solicitacao_status_history.deleteMany({
+        where: { solicitacao_id: solicitacaoId },
+      });
+    } catch (e) {
+      console.error("Erro ao apagar histórico de status da solicitação:", e);
+    }
 
-    // 3) Remover histórico de status
-    await prisma.solicitacao_status_history.deleteMany({
-      where: { solicitacao_id: solicitacaoId },
-    });
-
-    // 4) Remover a própria solicitação
+    // Por fim, remove a própria solicitação (relacionamentos em cascata no banco cuidam do resto)
     await prisma.solicitacao.delete({
       where: { id: solicitacaoId },
     });
