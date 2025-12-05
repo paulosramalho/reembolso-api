@@ -1,4 +1,4 @@
-// index.js — API Reembolso COMPLETA e ATUALIZADA 03/12/25 - 16:08h
+// index.js — API Reembolso COMPLETA e ATUALIZADA
 // Compatível com o schema/prisma atual e com o front (forma da resposta do login).
 
 // =========================
@@ -950,6 +950,72 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("Erro em PUT /solicitacoes/:id:", err);
     res.status(500).json({ erro: "Erro ao atualizar solicitação." });
+  }
+});
+
+// =========================
+// 🔰 SOLICITAÇÕES — DELETE (com arquivos e histórico)
+// =========================
+app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
+  try {
+    const solicitacaoId = Number(req.params.id);
+
+    const solicitacao = await prisma.solicitacao.findUnique({
+      where: { id: solicitacaoId },
+    });
+
+    if (!solicitacao) {
+      return res.status(404).json({ erro: "Solicitação não encontrada." });
+    }
+
+    // Regras:
+    // - Admin pode excluir qualquer solicitação
+    // - Usuário só pode excluir as próprias
+    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a excluir esta solicitação.",
+      });
+    }
+
+    // Arquivos vinculados
+    const arquivos = await prisma.solicitacao_arquivos.findMany({
+      where: { solicitacao_id: solicitacaoId },
+    });
+
+    // Remove arquivos físicos, se existirem
+    for (const arq of arquivos) {
+      const fullPath = path.join(uploadDir, arq.path);
+      try {
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+        }
+      } catch (e) {
+        console.error(
+          `Erro ao remover arquivo físico (id=${arq.id}, path=${arq.path}):`,
+          e
+        );
+      }
+    }
+
+    // Remove registros de arquivos (se houver)
+    await prisma.solicitacao_arquivos.deleteMany({
+      where: { solicitacao_id: solicitacaoId },
+    });
+
+    // Remove histórico de status (se tiver)
+    await prisma.solicitacao_status_history.deleteMany({
+      where: { solicitacao_id: solicitacaoId },
+    });
+
+    // Finalmente, remove a solicitação
+    await prisma.solicitacao.delete({
+      where: { id: solicitacaoId },
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro em DELETE /solicitacoes/:id:", err);
+    res.status(500).json({ erro: "Erro ao excluir solicitação." });
   }
 });
 
