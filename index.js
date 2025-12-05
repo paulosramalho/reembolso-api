@@ -982,34 +982,41 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       data: dataAtualizar,
     });
 
-    // 🔹 Se o status mudou (via edição genérica), registra no histórico
-if (statusMudou) {
-  const Historico = getHistoricoModel();
-  if (Historico) {
-    try {
-            const dataHistorico =
-        normalizarData(dados.data) ||
-        normalizarData(dados.data_solicitacao) ||
-        atualizado.data_ultima_mudanca ||
-        new Date();
+        // 🔹 Se o status mudou (via edição genérica), registra no histórico
+    if (statusMudou) {
+      const Historico = getHistoricoModel();
+      if (Historico) {
+        try {
+          // pega eventual observação enviada no corpo (ex.: ao mudar p/ "Aguardando documento")
+          const obsHistorico =
+            dados.obs ??
+            dados.observacao ??
+            null;
 
-await Historico.create({
-  data: {
-    solicitacao_id: solicitacaoId,
-    status: atualizado.status,
-    data: dataHistorico,
-    origem: "Edição",
-    obs: null,
-  },
-});
-    } catch (errHist) {
-      console.error(
-        "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
-        errHist
-      );
+          // 👉 data do movimento: usa data_ultima_mudanca (que acabou de ser setada)
+          // se por algum motivo não vier, cai pra data normalizada ou "agora"
+          const dataHistorico =
+            atualizado.data_ultima_mudanca ||
+            normalizarData(dados.data) ||
+            new Date();
+
+          await Historico.create({
+            data: {
+              solicitacao_id: solicitacaoId,
+              status: atualizado.status,
+              data: dataHistorico,
+              origem: "Edição",
+              obs: obsHistorico,
+            },
+          });
+        } catch (errHist) {
+          console.error(
+            "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
+            errHist
+          );
+        }
+      }
     }
-  }
-}
 
     res.json(atualizado);
   } catch (err) {
@@ -1381,7 +1388,7 @@ if (status === "Aguardando documento") {
       });
     }
 
-    const atualizado = await prisma.solicitacao.update({
+        const atualizado = await prisma.solicitacao.update({
       where: { id: Number(id) },
       data: {
         status,
@@ -1390,24 +1397,26 @@ if (status === "Aguardando documento") {
     });
 
     const Historico = getHistoricoModel();
-if (Historico) {
+    if (Historico) {
+      // 👉 sempre prioriza a data da última mudança (data real do movimento)
       const dataHistorico =
-      normalizarData(req.body.data) ||
-      normalizarData(req.body.data_solicitacao) ||
-      new Date();
+        atualizado.data_ultima_mudanca ||
+        normalizarData(req.body.data) ||
+        new Date();
 
-await Historico.create({
-  data: {
-    solicitacao_id: Number(id),
-    status,
-    data: dataHistorico,
-    origem: origem || "Sistema",
-    obs: obs || null,
-  },
-});
-}
+      await Historico.create({
+        data: {
+          solicitacao_id: Number(id),
+          status,
+          data: dataHistorico,
+          origem: origem || "Sistema",
+          obs: obs || null,
+        },
+      });
+    }
 
     res.json({ ok: true, atualizado });
+
   } catch (err) {
     console.error("Erro em PUT /solicitacoes/:id/status:", err);
     res.status(500).json({ erro: "Erro ao atualizar status." });
