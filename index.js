@@ -1,4 +1,4 @@
-// index.js — API Reembolso COMPLETA e ATUALIZADA 04/12/25
+// index.js — API Reembolso COMPLETA e ATUALIZADA 03/12/25 - 16:08h
 // Compatível com o schema/prisma atual e com o front (forma da resposta do login).
 
 // =========================
@@ -766,7 +766,7 @@ function normalizarNumero(valor) {
   return Number.isNaN(num) ? null : num;
 }
 
-const CAMPOS_SOLICITACAO_PERMITIDOS = [
+const camposPermitidos = [
   "usuario_id",
   "solicitante_nome",
   "beneficiario_nome",
@@ -786,9 +786,9 @@ const CAMPOS_SOLICITACAO_PERMITIDOS = [
   "valor_reembolso",
 ];
 
-const CAMPOS_NUMERICOS = ["valor_nf", "valor", "valor_reembolso"];
+const camposNumericos = ["valor_nf", "valor", "valor_reembolso"];
 
-const CAMPOS_DATA = [
+const camposData = [
   "data_nf",
   "data_solicitacao",
   "data_ultima_mudanca",
@@ -813,7 +813,7 @@ function normalizarData(valor) {
 }
 
 // =========================
-// 🔰 SOLICITAÇÕES — CRIAR / ATUALIZAR / EXCLUIR
+// 🔰 SOLICITAÇÕES — CRIAR / ATUALIZAR
 // =========================
 app.post("/solicitacoes", authMiddleware, async (req, res) => {
   try {
@@ -834,21 +834,21 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
       usuario_id: usuarioIdSolicitante,
     };
 
-    for (const campo of CAMPOS_SOLICITACAO_PERMITIDOS) {
+    for (const campo of camposPermitidos) {
       if (!Object.prototype.hasOwnProperty.call(dados, campo)) continue;
       let valor = dados[campo];
 
       if (valor === undefined || valor === "") continue;
       if (campo === "usuario_id") continue;
 
-      if (CAMPOS_NUMERICOS.includes(campo)) {
+      if (camposNumericos.includes(campo)) {
         const num = normalizarNumero(valor);
         if (num === null) continue;
         dataCriar[campo] = num;
         continue;
       }
 
-      if (CAMPOS_DATA.includes(campo)) {
+      if (camposData.includes(campo)) {
         const dt = normalizarData(valor);
         if (!dt) continue;
         dataCriar[campo] = dt;
@@ -884,9 +884,10 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
     });
 
     if (!existente) {
-      return res.status(404).json({ erro: "Solicitação não encontrado." });
+      return res.status(404).json({ erro: "Solicitação não encontrada." });
     }
 
+    // Se não for admin, só pode atualizar se for o solicitante
     if (req.user.tipo !== "admin" && existente.usuario_id !== req.user.id) {
       return res.status(403).json({
         erro: "Usuário não autorizado a alterar esta solicitação.",
@@ -895,12 +896,15 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
 
     const dataAtualizar = {};
 
-    for (const campo of CAMPOS_SOLICITACAO_PERMITIDOS) {
+    for (const campo of camposPermitidos) {
       if (!Object.prototype.hasOwnProperty.call(dados, campo)) continue;
 
       let valor = dados[campo];
-      if (valor === undefined || valor === "") continue;
 
+      // Não mexe com undefined
+      if (valor === undefined) continue;
+
+      // Tratamento específico para usuario_id
       if (campo === "usuario_id") {
         const idNum = Number(valor);
         if (!Number.isNaN(idNum) && idNum > 0) {
@@ -909,14 +913,16 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
         continue;
       }
 
-      if (CAMPOS_NUMERICOS.includes(campo)) {
+      // Campos numéricos (valor_nf, valor, valor_reembolso)
+      if (camposNumericos.includes(campo)) {
         const num = normalizarNumero(valor);
         if (num === null) continue;
         dataAtualizar[campo] = num;
         continue;
       }
 
-      if (CAMPOS_DATA.includes(campo)) {
+      // Campos de data
+      if (camposData.includes(campo)) {
         const dt = normalizarData(valor);
         if (!dt) continue;
         dataAtualizar[campo] = dt;
@@ -926,6 +932,7 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       dataAtualizar[campo] = valor;
     }
 
+    // Se alterar status, atualiza data_ultima_mudanca
     if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
       dataAtualizar.data_ultima_mudanca = new Date();
     }
@@ -946,79 +953,14 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// ❌ EXCLUIR SOLICITAÇÃO (com remoção de anexos e histórico)
-// Regra:
-// - admin pode excluir qualquer solicitação
-// - usuário comum só pode excluir as próprias
-app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
-  try {
-    const solicitacaoId = Number(req.params.id);
-
-    if (!solicitacaoId || Number.isNaN(solicitacaoId)) {
-      return res.status(400).json({ erro: "ID inválido." });
-    }
-
-    // Busca a solicitação com os arquivos relacionados
-    const solicitacao = await prisma.solicitacao.findUnique({
-      where: { id: solicitacaoId },
-      include: { arquivos: true },
-    });
-
-    if (!solicitacao) {
-      return res.status(404).json({ erro: "Solicitação não encontrada." });
-    }
-
-    // Permissões:
-    // - admin pode tudo
-    // - user só se for dono da solicitação
-    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
-      return res.status(403).json({
-        erro: "Usuário não autorizado a excluir esta solicitação.",
-      });
-    }
-
-    // Remove arquivos físicos do disco
-    const arquivos = solicitacao.arquivos || [];
-    for (const arq of arquivos) {
-      if (!arq.path) continue;
-      const fullPath = path.join(uploadDir, arq.path);
-      if (fs.existsSync(fullPath)) {
-        try {
-          fs.unlinkSync(fullPath);
-        } catch (e) {
-          console.error("Erro ao remover arquivo físico:", fullPath, e);
-        }
-      }
-    }
-
-    // Remove histórico de status vinculado
-    try {
-      await prisma.solicitacao_status_history.deleteMany({
-        where: { solicitacao_id: solicitacaoId },
-      });
-    } catch (e) {
-      console.error("Erro ao apagar histórico de status da solicitação:", e);
-    }
-
-    // Por fim, remove a própria solicitação (relacionamentos em cascata no banco cuidam do resto)
-    await prisma.solicitacao.delete({
-      where: { id: solicitacaoId },
-    });
-
-    return res.json({ ok: true });
-  } catch (err) {
-    console.error("Erro em DELETE /solicitacoes/:id:", err);
-    return res.status(500).json({ erro: "Erro ao excluir solicitação." });
-  }
-});
-
 // =========================
-// 🔰 ARQUIVOS (UPLOAD / LISTAGEM / DOWNLOAD / DELETE)
+// 🔰 UPLOAD DE ARQUIVOS (AJUSTADO)
 // =========================
 app.post(
   "/solicitacoes/:id/arquivos",
   authMiddleware,
-  upload.single("arquivo"),
+  // 👇 agora bate com o campo que o front está mandando (file)
+  upload.single("file"),
   async (req, res) => {
     try {
       const solicitacaoId = Number(req.params.id);
@@ -1045,9 +987,9 @@ app.post(
         });
       }
 
+      // 🔁 Tenta com todos os campos; se der erro de schema, tenta com o mínimo
       let registro;
       try {
-        // Tentativa completa (incluindo campos opcionais)
         registro = await prisma.solicitacao_arquivos.create({
           data: {
             solicitacao_id: solicitacaoId,
@@ -1059,10 +1001,9 @@ app.post(
         });
       } catch (errPrisma) {
         console.error(
-          "Primeira tentativa de criar solicitacao_arquivos falhou, tentando com campos mínimos:",
+          "Falha ao criar solicitacao_arquivos com todos os campos, tentando apenas campos mínimos:",
           errPrisma
         );
-        // Fallback: apenas campos essenciais já existentes no banco
         registro = await prisma.solicitacao_arquivos.create({
           data: {
             solicitacao_id: solicitacaoId,
@@ -1075,21 +1016,22 @@ app.post(
       res.json(registro);
     } catch (err) {
       console.error("Erro em POST /solicitacoes/:id/arquivos:", err);
-      const msg =
-        err && err.message ? String(err.message) : "Erro interno ao enviar arquivo.";
-      res.status(500).json({ erro: "Erro ao enviar arquivo.", detalhe: msg });
+      res
+        .status(500)
+        .json({ erro: "Erro ao enviar arquivo.", detalhe: err?.message || String(err) });
     }
   }
 );
 
-// 🔎 LISTAR ARQUIVOS (USANDO RELAÇÃO `arquivos`)
+// =========================
+// 🔰 LISTAR ARQUIVOS
+// =========================
 app.get("/solicitacoes/:id/arquivos", authMiddleware, async (req, res) => {
   try {
     const solicitacaoId = Number(req.params.id);
 
     const solicitacao = await prisma.solicitacao.findUnique({
       where: { id: solicitacaoId },
-      include: { arquivos: true },
     });
 
     if (!solicitacao) {
@@ -1102,7 +1044,11 @@ app.get("/solicitacoes/:id/arquivos", authMiddleware, async (req, res) => {
       });
     }
 
-    const arquivos = solicitacao.arquivos || [];
+    const arquivos = await prisma.solicitacao_arquivos.findMany({
+      where: { solicitacao_id: solicitacaoId },
+      orderBy: { created_at: "desc" },
+    });
+
     res.json(arquivos);
   } catch (err) {
     console.error("Erro em GET /solicitacoes/:id/arquivos:", err);
@@ -1110,20 +1056,23 @@ app.get("/solicitacoes/:id/arquivos", authMiddleware, async (req, res) => {
   }
 });
 
+// =========================
+// 🔰 DOWNLOAD ARQUIVO
+// =========================
 app.get("/arquivos/:id/download", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const registro = await prisma.solicitacao_arquivos.findUnique({
+    const arquivo = await prisma.solicitacao_arquivos.findUnique({
       where: { id: Number(id) },
     });
 
-    if (!registro) {
+    if (!arquivo) {
       return res.status(404).json({ erro: "Arquivo não encontrado." });
     }
 
     const solicitacao = await prisma.solicitacao.findUnique({
-      where: { id: registro.solicitacao_id },
+      where: { id: arquivo.solicitacao_id },
     });
 
     if (!solicitacao) {
@@ -1136,7 +1085,7 @@ app.get("/arquivos/:id/download", authMiddleware, async (req, res) => {
       });
     }
 
-    const fullPath = path.join(uploadDir, registro.path);
+    const fullPath = path.join(uploadDir, arquivo.path);
 
     if (!fs.existsSync(fullPath)) {
       return res
@@ -1144,27 +1093,30 @@ app.get("/arquivos/:id/download", authMiddleware, async (req, res) => {
         .json({ erro: "Arquivo não está mais disponível." });
     }
 
-    res.download(fullPath, registro.original_name);
+    res.download(fullPath, arquivo.original_name);
   } catch (err) {
     console.error("Erro em GET /arquivos/:id/download:", err);
     res.status(500).json({ erro: "Erro ao fazer download do arquivo." });
   }
 });
 
+// =========================
+// 🔰 REMOVER ARQUIVO
+// =========================
 app.delete("/arquivos/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const registro = await prisma.solicitacao_arquivos.findUnique({
+    const arquivo = await prisma.solicitacao_arquivos.findUnique({
       where: { id: Number(id) },
     });
 
-    if (!registro) {
+    if (!arquivo) {
       return res.status(404).json({ erro: "Arquivo não encontrado." });
     }
 
     const solicitacao = await prisma.solicitacao.findUnique({
-      where: { id: registro.solicitacao_id },
+      where: { id: arquivo.solicitacao_id },
     });
 
     if (!solicitacao) {
@@ -1177,7 +1129,7 @@ app.delete("/arquivos/:id", authMiddleware, async (req, res) => {
       });
     }
 
-    const fullPath = path.join(uploadDir, registro.path);
+    const fullPath = path.join(uploadDir, arquivo.path);
 
     if (fs.existsSync(fullPath)) {
       fs.unlinkSync(fullPath);
@@ -1216,14 +1168,21 @@ app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
       });
     }
 
-    // Modal de edição não vai mais listar histórico (você já tem página própria):
-    return res.json([]);
+    const lista = await prisma.solicitacao_status_history.findMany({
+      where: { solicitacao_id: solicitacaoId },
+      orderBy: { data: "desc" },
+    });
+
+    res.json(lista);
   } catch (err) {
     console.error("Erro em GET /solicitacoes/:id/historico:", err);
     res.status(500).json({ erro: "Erro ao buscar histórico." });
   }
 });
 
+// =========================
+// 🔰 ATUALIZAR STATUS DA SOLICITAÇÃO (com histórico) — ADMIN
+// =========================
 app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
@@ -1231,6 +1190,7 @@ app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) 
 
     const statusList = await prisma.status.findMany({
       where: { ativo: true },
+      orderBy: { id: "asc" },
     });
 
     const nomesStatus = statusList.map((s) => s.nome);
