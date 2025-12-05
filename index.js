@@ -35,21 +35,17 @@ function getArquivosModel() {
   return arquivosModel;
 }
 
-// Helper para acessar o modelo de histórico de status, qualquer que seja o nome no Prisma
-const historicoModel =
-  prisma.solicitacao_status_history || // se por acaso existir com esse nome (pouco provável)
-  prisma.solicitacaoStatusHistory ||
-  prisma.SolicitacaoStatusHistory ||
-  prisma.Solicitacao_status_history ||
-  null;
-
+// Helper para acessar o modelo de histórico de status (model SolicitacaoStatusHistory → tabela solicitacao_status_history)
 function getHistoricoModel() {
-  if (!historicoModel) {
+  const Historico = prisma.solicitacaoStatusHistory; // nome exato do model no Prisma
+
+  if (!Historico) {
     console.error(
-      "Modelo de histórico de status (solicitacaoStatusHistory / SolicitacaoStatusHistory / solicitacao_status_history) não encontrado no Prisma Client."
+      "Modelo SolicitacaoStatusHistory (tabela solicitacao_status_history) não encontrado no Prisma Client."
     );
   }
-  return historicoModel;
+
+  return Historico;
 }
 
 const PORT = process.env.PORT || 4000;
