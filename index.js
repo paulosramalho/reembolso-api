@@ -1281,7 +1281,7 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
       dataCriar.status = dados.status || "Em análise";
     }
 
-    // 🔒 Validação global de NF duplicada
+        // 🔒 Validação global de NF duplicada na criação
     if (dataCriar.numero_nf) {
       const nf = String(dataCriar.numero_nf).trim();
 
@@ -1294,7 +1294,7 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
 
         if (jaExiste) {
           return res.status(400).json({
-            erro: "Já existe uma solicitação cadastrada com essa Nota Fiscal / Receita Saúde.",
+            erro: "Já existe uma solicitação cadastrada com essa nota fiscal.",
           });
         }
 
@@ -1418,7 +1418,7 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       dataAtualizar[campo] = valor;
     }
 
-    if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
+        if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
       const novoStatus = dataAtualizar.status;
 
       if (novoStatus === "Pago") {
@@ -1452,18 +1452,6 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       }
     }
 
-    console.log("DEBUG EDITAR - dataAtualizar:", {
-      dataAtualizar,
-      dataMovimentacao,
-      statusAntes,
-      statusDepois: dataAtualizar.status ?? statusAntes,
-      statusMudou,
-    });
-
-    if (Object.keys(dataAtualizar).length === 0) {
-      return res.json(existente);
-    }
-
     // 🔒 Validação global de NF duplicada também na edição
     if (Object.prototype.hasOwnProperty.call(dataAtualizar, "numero_nf")) {
       const nf = dataAtualizar.numero_nf
@@ -1484,17 +1472,13 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
           });
         }
 
+        // salva NF já normalizada
         dataAtualizar.numero_nf = nf;
       } else {
         // se vier vazio, zera a NF
         dataAtualizar.numero_nf = null;
       }
     }
-
-    const atualizado = await prisma.solicitacao.update({
-      where: { id: solicitacaoId },
-      data: dataAtualizar,
-    });
 
     const atualizado = await prisma.solicitacao.update({
       where: { id: solicitacaoId },
@@ -1536,6 +1520,7 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
     }
 
     res.json(atualizado);
+
   } catch (err) {
     console.error("Erro em PUT /solicitacoes/:id:", err);
     res.status(500).json({ erro: "Erro ao atualizar solicitação." });
