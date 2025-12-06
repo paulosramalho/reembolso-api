@@ -1,5 +1,4 @@
-// index.js — API Reembolso COMPLETA e ATUALIZADA 05/12/25 - 01:52h
-// Compatível com o schema/prisma atual e com o front (forma da resposta do login).
+// index.js — API Reembolso ESTÁVEL + ajuste de data de movimentação no histórico (Editar)
 
 // =========================
 // 🔰 IMPORTAÇÕES & SETUP
@@ -869,39 +868,38 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
     }
 
     if (!dataCriar.status) {
-  dataCriar.status = dados.status || "Em análise";
-}
+      dataCriar.status = dados.status || "Em análise";
+    }
 
-const nova = await prisma.solicitacao.create({
-  data: dataCriar,
-});
-
-// Preferência: data enviada pelo front → data_solicitacao → agora
-const dataHistorico =
-  normalizarData(dados.data) ||
-  normalizarData(dados.data_solicitacao) ||
-  dataCriar.data_solicitacao ||
-  new Date();
-
-const Historico = getHistoricoModel();
-if (Historico) {
-  try {
-    await Historico.create({
-      data: {
-        solicitacao_id: nova.id,
-        status: nova.status || dataCriar.status || "Em análise",
-        data: dataHistorico,
-        origem: "Criação",
-        obs: null,
-      },
+    const nova = await prisma.solicitacao.create({
+      data: dataCriar,
     });
-  } catch (errHist) {
-    console.error("Erro ao gravar histórico inicial da solicitação:", errHist);
-  }
-}
 
-res.json(nova);
+    // Preferência: data enviada pelo front → data_solicitacao → agora
+    const dataHistorico =
+      normalizarData(dados.data) ||
+      normalizarData(dados.data_solicitacao) ||
+      dataCriar.data_solicitacao ||
+      new Date();
 
+    const Historico = getHistoricoModel();
+    if (Historico) {
+      try {
+        await Historico.create({
+          data: {
+            solicitacao_id: nova.id,
+            status: nova.status || dataCriar.status || "Em análise",
+            data: dataHistorico,
+            origem: "Criação",
+            obs: null,
+          },
+        });
+      } catch (errHist) {
+        console.error("Erro ao gravar histórico inicial da solicitação:", errHist);
+      }
+    }
+
+    res.json(nova);
   } catch (err) {
     console.error("Erro em POST /solicitacoes:", err);
     res.status(500).json({ erro: "Erro ao criar solicitação." });
@@ -983,41 +981,39 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
     });
 
     // 🔹 Se o status mudou (via edição genérica), registra no histórico
-if (statusMudou) {
-  const Historico = getHistoricoModel();
-  if (Historico) {
-    try {
-      const obsHistorico =
-        dados.obs ??
-        dados.observacao ??
-        null;
+    if (statusMudou) {
+      const Historico = getHistoricoModel();
+      if (Historico) {
+        try {
+          const obsHistorico =
+            dados.obs ??
+            dados.observacao ??
+            null;
 
-      // ✅ DATA DO MOVIMENTO: usa SEMPRE a data_ultima_mudanca (ou agora)
-        const dataHistorico =
-        normalizarData(dados.data) ||               // se vier "data" no body
-        normalizarData(dados.data_nf) ||            // se vier "data_nf"
-        normalizarData(dados.data_solicitacao) ||   // se vier "data_solicitacao"
-        existente.data_nf ||                        // senão, usa o que já está na solicitação
-        existente.data_solicitacao ||
-        new Date();                                 // fallback absoluto (evita erro)
+          // ✅ DATA DA MOVIMENTAÇÃO (fluxo Editar):
+          // usa EXCLUSIVAMENTE a data enviada pelo modal (dados.data),
+          // caindo para "agora" se nada vier.
+          const dataHistorico =
+            normalizarData(dados.data) ||
+            new Date();
 
-      await Historico.create({
-        data: {
-          solicitacao_id: solicitacaoId,
-          status: atualizado.status,
-          data: dataHistorico,
-          origem: "Edição",
-          obs: obsHistorico,
-        },
-      });
-    } catch (errHist) {
-      console.error(
-        "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
-        errHist
-      );
+          await Historico.create({
+            data: {
+              solicitacao_id: solicitacaoId,
+              status: atualizado.status,
+              data: dataHistorico,
+              origem: "Edição",
+              obs: obsHistorico,
+            },
+          });
+        } catch (errHist) {
+          console.error(
+            "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
+            errHist
+          );
+        }
+      }
     }
-  }
-}
 
     res.json(atualizado);
   } catch (err) {
@@ -1082,19 +1078,19 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
     }
 
     // Remove histórico de status (se o modelo existir)
-const Historico = getHistoricoModel();
-if (Historico) {
-  try {
-    await Historico.deleteMany({
-      where: { solicitacao_id: solicitacaoId },
-    });
-  } catch (e) {
-    console.error(
-      "Erro ao apagar histórico de status da solicitação (ignorando e prosseguindo):",
-      e
-    );
-  }
-}
+    const Historico = getHistoricoModel();
+    if (Historico) {
+      try {
+        await Historico.deleteMany({
+          where: { solicitacao_id: solicitacaoId },
+        });
+      } catch (e) {
+        console.error(
+          "Erro ao apagar histórico de status da solicitação (ignorando e prosseguindo):",
+          e
+        );
+      }
+    }
 
     await prisma.solicitacao.delete({
       where: { id: solicitacaoId },
@@ -1343,14 +1339,14 @@ app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
     }
 
     const Historico = getHistoricoModel();
-if (!Historico) {
-  return res.json([]);
-}
+    if (!Historico) {
+      return res.json([]);
+    }
 
-const lista = await Historico.findMany({
-  where: { solicitacao_id: solicitacaoId },
-  orderBy: { data: "desc" },
-});
+    const lista = await Historico.findMany({
+      where: { solicitacao_id: solicitacaoId },
+      orderBy: { data: "desc" },
+    });
 
     res.json(lista);
   } catch (err) {
@@ -1360,21 +1356,21 @@ const lista = await Historico.findMany({
 });
 
 // =========================
-// 🔰 ATUALIZAR STATUS DA SOLICITAÇÃO (com histórico) — ADMIN
+// 🔰 ATUALIZAR STATUS DA SOLICITAÇÃO (com histórico) — ADMIN (Kanban)
 // =========================
 app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
     const { status, origem, obs } = req.body;
 
-// Se o status for "Aguardando documento", obs é obrigatória
-if (status === "Aguardando documento") {
-  if (!obs || String(obs).trim() === "") {
-    return res.status(400).json({
-      erro: "Campo 'obs' é obrigatório quando o status é 'Aguardando documento'.",
-    });
-  }
-}
+    // Se o status for "Aguardando documento", obs é obrigatória
+    if (status === "Aguardando documento") {
+      if (!obs || String(obs).trim() === "") {
+        return res.status(400).json({
+          erro: "Campo 'obs' é obrigatório quando o status é 'Aguardando documento'.",
+        });
+      }
+    }
 
     const statusList = await prisma.status.findMany({
       where: { ativo: true },
@@ -1389,38 +1385,37 @@ if (status === "Aguardando documento") {
       });
     }
 
-      const atualizado = await prisma.solicitacao.update({
-  where: { id: Number(id) },
-  data: {
-    status,
-    data_ultima_mudanca: new Date(),
-  },
-});
+    const atualizado = await prisma.solicitacao.update({
+      where: { id: Number(id) },
+      data: {
+        status,
+        data_ultima_mudanca: new Date(),
+      },
+    });
 
-const Historico = getHistoricoModel();
-if (Historico) {
-  // ✅ DATA DO MOVIMENTO: mesma lógica, data_ultima_mudanca ou agora
-    const dataHistorico =
-    normalizarData(req.body.data) ||               // se o front mandar "data"
-    normalizarData(req.body.data_nf) ||            // ou "data_nf"
-    normalizarData(req.body.data_solicitacao) ||   // ou "data_solicitacao"
-    atualizado.data_nf ||                          // senão, usa a data da solicitação
-    atualizado.data_solicitacao ||
-    new Date();                                    // fallback absoluto
+    const Historico = getHistoricoModel();
+    if (Historico) {
+      // Aqui continua priorizando o campo "data" vindo do modal do Kanban
+      const dataHistorico =
+        normalizarData(req.body.data) ||
+        normalizarData(req.body.data_nf) ||
+        normalizarData(req.body.data_solicitacao) ||
+        atualizado.data_nf ||
+        atualizado.data_solicitacao ||
+        new Date();
 
-  await Historico.create({
-    data: {
-      solicitacao_id: Number(id),
-      status,
-      data: dataHistorico,
-      origem: origem || "Sistema",
-      obs: obs || null,
-    },
-  });
-}
+      await Historico.create({
+        data: {
+          solicitacao_id: Number(id),
+          status,
+          data: dataHistorico,
+          origem: origem || "Sistema",
+          obs: obs || null,
+        },
+      });
+    }
 
-res.json({ ok: true, atualizado });
-
+    res.json({ ok: true, atualizado });
   } catch (err) {
     console.error("Erro em PUT /solicitacoes/:id/status:", err);
     res.status(500).json({ erro: "Erro ao atualizar status." });
@@ -1509,13 +1504,13 @@ app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
 app.get("/historico", authMiddleware, adminOnly, async (req, res) => {
   try {
     const Historico = getHistoricoModel();
-if (!Historico) {
-  return res.json([]);
-}
+    if (!Historico) {
+      return res.json([]);
+    }
 
-const lista = await Historico.findMany({
-  orderBy: { data: "desc" },
-});
+    const lista = await Historico.findMany({
+      orderBy: { data: "desc" },
+    });
 
     res.json(lista);
   } catch (err) {
