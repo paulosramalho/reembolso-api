@@ -845,14 +845,27 @@ function normalizarData(valor) {
   }
 
   // 🔹 Formato brasileiro "DD/MM/AAAA"
-  const mBR = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-  const matchBR = s.match(mBR);
-  if (matchBR) {
-    const dia = Number(matchBR[1]);
-    const mes = Number(matchBR[2]) - 1; // 0–11
-    const ano = Number(matchBR[3]);
+  const mBR4 = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+  const m4 = s.match(mBR4);
+  if (m4) {
+    const dia = Number(m4[1]);
+    const mes = Number(m4[2]) - 1; // 0–11
+    const ano = Number(m4[3]);
+    const d = new Date(ano, mes, dia);
+    if (isNaN(d.getTime())) return null;
+    return d;
+  }
 
-    const d = new Date(ano, mes, dia); // meia-noite no fuso local
+  // 🔹 Formato brasileiro "DD/MM/AA" (ex: 01/06/25 → 2025-06-01)
+  const mBR2 = /^(\d{2})\/(\d{2})\/(\d{2})$/;
+  const m2 = s.match(mBR2);
+  if (m2) {
+    const dia = Number(m2[1]);
+    const mes = Number(m2[2]) - 1;
+    let ano = Number(m2[3]);
+    // assume século 2000 (20–99 → 2000+, 00–19 → 2000 também)
+    ano = 2000 + ano;
+    const d = new Date(ano, mes, dia);
     if (isNaN(d.getTime())) return null;
     return d;
   }
@@ -890,17 +903,21 @@ function getDataMovimentacaoFromBody(body) {
  * Tenta descobrir o campo de observação/motivo vindo do front.
  * Aceita vários nomes de campo.
  */
-function getObsFromBody(body) {
+
+function getObsFromBody(body, { permitirDescricao = false } = {}) {
   if (!body) return null;
 
-  const campos = [
+  const camposBase = [
     "obs",
     "observacao",
     "motivo",
     "motivoObs",
     "motivo_observacao",
-    "descricao",
   ];
+
+  const campos = permitirDescricao
+    ? [...camposBase, "descricao"]
+    : camposBase;
 
   for (const c of campos) {
     if (body[c] !== undefined && body[c] !== null) {
@@ -981,7 +998,7 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
             status: nova.status || dataCriar.status || "Em análise",
             data: dataHistorico,
             origem: "Criação",
-            obs: getObsFromBody(dados),
+                obs: getObsFromBody(dados, { permitirDescricao: true }),
           },
         });
       } catch (errHist) {
