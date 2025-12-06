@@ -883,12 +883,17 @@ function normalizarData(valor) {
 function getDataMovimentacaoFromBody(body) {
   if (!body) return null;
 
+  // 🔹 Ordem de prioridade:
+  // 1) Campos específicos de movimentação (se um dia o front mandar)
+  // 2) statusDate (é o que já vem do front hoje, em Editar e Kanban)
+  // 3) data (em alguns pontos o front manda "data" como data exibida)
+  // 4) data_solicitacao como último recurso (mas NUNCA data_ultima_mudanca do body)
   const candidatos = [
     body.data_movimentacao,
     body.dataMovimentacao,
-    body.data_ultima_mudanca,
-    body.dataUltimaMudanca,
-    body.data, // fallback genérico
+    body.statusDate,
+    body.data,
+    body.data_solicitacao,
   ];
 
   for (const v of candidatos) {
@@ -1097,15 +1102,24 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
     }
 
     if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
-      // 📌 Usa SEMPRE a data da movimentação vinda do modal
-      dataMovimentacao = getDataMovimentacaoFromBody(dados) || new Date();
-      dataAtualizar.data_ultima_mudanca = dataMovimentacao;
+  // 📌 Tenta pegar a data da movimentação do body (statusDate, etc.)
+  // Se não vier nada, usa:
+  //   1) data_ultima_mudanca existente
+  //   2) data_solicitacao
+  //   3) por último, data corrente
+  dataMovimentacao =
+    getDataMovimentacaoFromBody(dados) ||
+    existente.data_ultima_mudanca ||
+    existente.data_solicitacao ||
+    new Date();
 
-      const novoStatus = dataAtualizar.status;
-      if (novoStatus && novoStatus !== statusAntes) {
-        statusMudou = true;
-      }
-    }
+  dataAtualizar.data_ultima_mudanca = dataMovimentacao;
+
+  const novoStatus = dataAtualizar.status;
+  if (novoStatus && novoStatus !== statusAntes) {
+    statusMudou = true;
+  }
+}
 
 
     console.log("DEBUG EDITAR - dataAtualizar:", {
