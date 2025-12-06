@@ -1,8 +1,6 @@
-// index.js — API Reembolso ESTÁVEL + ajuste de data de movimentação no histórico (Editar)
+// index.js — API Reembolso ESTÁVEL + ajuste de data de movimentação no histórico (Editar e Kanban)
+// Usando data do modal (data da movimentação) e gravando observação/motivo no Kanban.
 
-// =========================
-// 🔰 IMPORTAÇÕES & SETUP
-// =========================
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -19,10 +17,10 @@ const prisma = new PrismaClient();
 
 // Helper para acessar o modelo de anexos, qualquer que seja o nome no Prisma
 const arquivosModel =
-  prisma.solicitacaoArquivo ||      // ex: model Solicitacao_arquivos
-  prisma.solicitacaoArquivos ||       // ex: model SolicitacaoArquivos
-  prisma.arquivo ||                   // ex: model Arquivo
-  prisma.arquivos ||                  // ex: model Arquivos
+  prisma.solicitacaoArquivo || // ex: model Solicitacao_arquivos
+  prisma.solicitacaoArquivos || // ex: model SolicitacaoArquivos
+  prisma.arquivo || // ex: model Arquivo
+  prisma.arquivos || // ex: model Arquivos
   null;
 
 function getArquivosModel() {
@@ -82,7 +80,10 @@ app.use(
         return callback(null, true);
       }
 
-      if (origin.endsWith(".vercel.app") && origin.includes("controle-de-reembolso")) {
+      if (
+        origin.endsWith(".vercel.app") &&
+        origin.includes("controle-de-reembolso")
+      ) {
         return callback(null, true);
       }
 
@@ -120,7 +121,9 @@ function authMiddleware(req, res, next) {
 
 function adminOnly(req, res, next) {
   if (!req.user || req.user.tipo !== "admin") {
-    return res.status(403).json({ erro: "Acesso restrito a administradores." });
+    return res
+      .status(403)
+      .json({ erro: "Acesso restrito a administradores." });
   }
   next();
 }
@@ -187,16 +190,22 @@ app.post("/auth/login", async (req, res) => {
     });
 
     if (!usuario) {
-      return res
-        .status(400)
-        .json({ ok: false, success: false, status: "error", mensagem: "Usuário não encontrado." });
+      return res.status(400).json({
+        ok: false,
+        success: false,
+        status: "error",
+        mensagem: "Usuário não encontrado.",
+      });
     }
 
     const senhaOk = await bcrypt.compare(senha, usuario.senha_hash);
     if (!senhaOk) {
-      return res
-        .status(400)
-        .json({ ok: false, success: false, status: "error", mensagem: "Usuário ou senha inválidos." });
+      return res.status(400).json({
+        ok: false,
+        success: false,
+        status: "error",
+        mensagem: "Usuário ou senha inválidos.",
+      });
     }
 
     if (!JWT_SECRET) {
@@ -240,9 +249,12 @@ app.post("/auth/login", async (req, res) => {
     });
   } catch (err) {
     console.error("Erro em /auth/login:", err);
-    res
-      .status(500)
-      .json({ ok: false, success: false, status: "error", mensagem: "Erro interno ao tentar fazer login." });
+    res.status(500).json({
+      ok: false,
+      success: false,
+      status: "error",
+      mensagem: "Erro interno ao tentar fazer login.",
+    });
   }
 });
 
@@ -308,7 +320,9 @@ app.post("/auth/esqueci-senha", async (req, res) => {
     const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json({ ok: false, mensagem: "E-mail é obrigatório." });
+      return res
+        .status(400)
+        .json({ ok: false, mensagem: "E-mail é obrigatório." });
     }
 
     const usuario = await prisma.usuario.findFirst({
@@ -338,7 +352,11 @@ app.post("/auth/esqueci-senha", async (req, res) => {
 
     let emailEnviado = false;
 
-    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    if (
+      process.env.SMTP_HOST &&
+      process.env.SMTP_USER &&
+      process.env.SMTP_PASS
+    ) {
       try {
         const transporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST,
@@ -395,7 +413,9 @@ app.post("/auth/reset-confirmar", async (req, res) => {
     const { token, novaSenha } = req.body;
 
     if (!token || !novaSenha) {
-      return res.status(400).json({ erro: "Token e nova senha são obrigatórios." });
+      return res
+        .status(400)
+        .json({ erro: "Token e nova senha são obrigatórios." });
     }
 
     const usuario = await prisma.usuario.findFirst({
@@ -462,7 +482,8 @@ app.get("/usuarios", async (req, res) => {
 
 // Helper p/ mapear solicitante e anexos
 function mapSolicitacaoComSolicitante(s) {
-  const nomeSolicitante = s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
+  const nomeSolicitante =
+    s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
 
   const arquivosArray = s.arquivos || s.solicitacao_arquivos || [];
 
@@ -563,9 +584,9 @@ app.delete("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
     const { id } = req.params;
 
     if (req.user && req.user.id === Number(id)) {
-      return res
-        .status(400)
-        .json({ erro: "Você não pode excluir o próprio usuário logado." });
+      return res.status(400).json({
+        erro: "Você não pode excluir o próprio usuário logado.",
+      });
     }
 
     await prisma.usuario.delete({
@@ -609,7 +630,9 @@ app.post("/descricoes", authMiddleware, adminOnly, async (req, res) => {
 
     const [novo] = await prisma.$queryRaw`
       INSERT INTO descricoes (descricao, ativo)
-      VALUES (${String(descricao).trim()}, ${ativo !== undefined ? !!ativo : true})
+      VALUES (${String(descricao).trim()}, ${
+      ativo !== undefined ? !!ativo : true
+    })
       RETURNING id, descricao, ativo;
     `;
 
@@ -628,7 +651,9 @@ app.put("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
     const [atualizado] = await prisma.$queryRaw`
       UPDATE descricoes
       SET
-        descricao = COALESCE(${descricao !== undefined ? String(descricao).trim() : null}, descricao),
+        descricao = COALESCE(${
+          descricao !== undefined ? String(descricao).trim() : null
+        }, descricao),
         ativo = COALESCE(${ativo !== undefined ? !!ativo : null}, ativo)
       WHERE id = ${Number(id)}
       RETURNING id, descricao, ativo;
@@ -802,7 +827,12 @@ const camposPermitidos = [
 
 const camposNumericos = ["valor_nf", "valor", "valor_reembolso"];
 
-const camposData = ["data_nf", "data_solicitacao", "data_ultima_mudanca", "data_pagamento"];
+const camposData = [
+  "data_nf",
+  "data_solicitacao",
+  "data_ultima_mudanca",
+  "data_pagamento",
+];
 
 function normalizarData(valor) {
   if (valor === null || valor === undefined || valor === "") return null;
@@ -822,7 +852,7 @@ function normalizarData(valor) {
 }
 
 // =========================
-// 🔰 SOLICITAÇÕES — CRIAR / ATUALIZAR
+// 🔰 SOLICITAÇÕES — CRIAR
 // =========================
 app.post("/solicitacoes", authMiddleware, async (req, res) => {
   try {
@@ -895,7 +925,10 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
           },
         });
       } catch (errHist) {
-        console.error("Erro ao gravar histórico inicial da solicitação:", errHist);
+        console.error(
+          "Erro ao gravar histórico inicial da solicitação:",
+          errHist
+        );
       }
     }
 
@@ -906,6 +939,9 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
   }
 });
 
+// =========================
+// 🔰 SOLICITAÇÕES — ATUALIZAR (Editar)
+// =========================
 app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
@@ -930,6 +966,7 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
 
     const dataAtualizar = {};
     let statusMudou = false;
+    let dataMovimentacao = null; // 📌 Data da movimentação (modal)
 
     for (const campo of camposPermitidos) {
       if (!Object.prototype.hasOwnProperty.call(dados, campo)) continue;
@@ -964,7 +1001,10 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
     }
 
     if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
-      dataAtualizar.data_ultima_mudanca = new Date();
+      // 📌 usa SEMPRE a data do modal como data da movimentação
+      dataMovimentacao = normalizarData(dados.data) || new Date();
+      dataAtualizar.data_ultima_mudanca = dataMovimentacao;
+
       const novoStatus = dataAtualizar.status;
       if (novoStatus && novoStatus !== statusAntes) {
         statusMudou = true;
@@ -986,16 +1026,10 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       if (Historico) {
         try {
           const obsHistorico =
-            dados.obs ??
-            dados.observacao ??
-            null;
+            dados.obs ?? dados.observacao ?? null;
 
-          // ✅ DATA DA MOVIMENTAÇÃO (fluxo Editar):
-          // usa EXCLUSIVAMENTE a data enviada pelo modal (dados.data),
-          // caindo para "agora" se nada vier.
           const dataHistorico =
-            normalizarData(dados.data) ||
-            new Date();
+            dataMovimentacao || normalizarData(dados.data) || new Date();
 
           await Historico.create({
             data: {
@@ -1317,7 +1351,7 @@ app.delete("/arquivos/:id", authMiddleware, async (req, res) => {
 });
 
 // =========================
-// 🔰 HISTÓRICO DE STATUS (por solicitação / global)
+// 🔰 HISTÓRICO DE STATUS (por solicitação)
 // =========================
 app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
   try {
@@ -1356,71 +1390,85 @@ app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
 });
 
 // =========================
-// 🔰 ATUALIZAR STATUS DA SOLICITAÇÃO (com histórico) — ADMIN (Kanban)
+// 🔰 ATUALIZAR STATUS — KANBAN (com histórico)
 // =========================
-app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, origem, obs } = req.body;
+app.put(
+  "/solicitacoes/:id/status",
+  authMiddleware,
+  adminOnly,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, origem } = req.body;
 
-    // Se o status for "Aguardando documento", obs é obrigatória
-    if (status === "Aguardando documento") {
-      if (!obs || String(obs).trim() === "") {
+      // 📌 Observação pode vir como "obs" ou "observacao"
+      const rawObs =
+        req.body.obs !== undefined
+          ? req.body.obs
+          : req.body.observacao !== undefined
+          ? req.body.observacao
+          : null;
+      const textoObs =
+        rawObs !== null && rawObs !== undefined
+          ? String(rawObs).trim()
+          : "";
+
+      // 📌 Motivo obrigatório p/ Aguardando documento OU Rejeitado
+      const motivoObrigatorio =
+        status === "Aguardando documento" || status === "Rejeitado";
+
+      if (motivoObrigatorio && !textoObs) {
         return res.status(400).json({
-          erro: "Campo 'obs' é obrigatório quando o status é 'Aguardando documento'.",
+          erro:
+            "Campo 'obs' (observação/motivo) é obrigatório quando o status é 'Aguardando documento' ou 'Rejeitado'.",
         });
       }
-    }
 
-    const statusList = await prisma.status.findMany({
-      where: { ativo: true },
-      orderBy: { id: "asc" },
-    });
-
-    const nomesStatus = statusList.map((s) => s.nome);
-    if (!nomesStatus.includes(status)) {
-      return res.status(400).json({
-        erro: "Status inválido. Use um dos disponíveis na tabela 'status'.",
-        permitidos: nomesStatus,
+      const statusList = await prisma.status.findMany({
+        where: { ativo: true },
+        orderBy: { id: "asc" },
       });
-    }
 
-    const atualizado = await prisma.solicitacao.update({
-      where: { id: Number(id) },
-      data: {
-        status,
-        data_ultima_mudanca: new Date(),
-      },
-    });
+      const nomesStatus = statusList.map((s) => s.nome);
+      if (!nomesStatus.includes(status)) {
+        return res.status(400).json({
+          erro: "Status inválido. Use um dos disponíveis na tabela 'status'.",
+          permitidos: nomesStatus,
+        });
+      }
 
-    const Historico = getHistoricoModel();
-    if (Historico) {
-      // Aqui continua priorizando o campo "data" vindo do modal do Kanban
-      const dataHistorico =
-        normalizarData(req.body.data) ||
-        normalizarData(req.body.data_nf) ||
-        normalizarData(req.body.data_solicitacao) ||
-        atualizado.data_nf ||
-        atualizado.data_solicitacao ||
-        new Date();
+      // 📌 Data da movimentação — sempre a do modal
+      const dataMovimentacao =
+        normalizarData(req.body.data) || new Date();
 
-      await Historico.create({
+      const atualizado = await prisma.solicitacao.update({
+        where: { id: Number(id) },
         data: {
-          solicitacao_id: Number(id),
           status,
-          data: dataHistorico,
-          origem: origem || "Sistema",
-          obs: obs || null,
+          data_ultima_mudanca: dataMovimentacao,
         },
       });
-    }
 
-    res.json({ ok: true, atualizado });
-  } catch (err) {
-    console.error("Erro em PUT /solicitacoes/:id/status:", err);
-    res.status(500).json({ erro: "Erro ao atualizar status." });
+      const Historico = getHistoricoModel();
+      if (Historico) {
+        await Historico.create({
+          data: {
+            solicitacao_id: Number(id),
+            status,
+            data: dataMovimentacao,
+            origem: origem || "Sistema",
+            obs: textoObs || null,
+          },
+        });
+      }
+
+      res.json({ ok: true, atualizado });
+    } catch (err) {
+      console.error("Erro em PUT /solicitacoes/:id/status:", err);
+      res.status(500).json({ erro: "Erro ao atualizar status." });
+    }
   }
-});
+);
 
 // =========================
 // 🔰 KANBAN
@@ -1557,39 +1605,44 @@ app.get("/relatorios/irpf", authMiddleware, adminOnly, async (req, res) => {
 // =========================
 // 🔰 ESTRUTURA DO BANCO (TXT)
 // =========================
-app.get("/config/estrutura-banco", authMiddleware, adminOnly, async (req, res) => {
-  try {
-    const result = await prisma.$queryRawUnsafe(`
+app.get(
+  "/config/estrutura-banco",
+  authMiddleware,
+  adminOnly,
+  async (req, res) => {
+    try {
+      const result = await prisma.$queryRawUnsafe(`
       SELECT table_name, column_name, data_type, is_nullable
       FROM information_schema.columns
       WHERE table_schema = 'public'
       ORDER BY table_name, ordinal_position;
     `);
 
-    let txt = "Controle de Reembolso – Estrutura do Banco de Dados\n";
-    txt += `Gerado em: ${new Date().toLocaleString()}\n\n`;
+      let txt = "Controle de Reembolso – Estrutura do Banco de Dados\n";
+      txt += `Gerado em: ${new Date().toLocaleString()}\n\n`;
 
-    let tabelaAtual = null;
+      let tabelaAtual = null;
 
-    for (const row of result) {
-      if (tabelaAtual !== row.table_name) {
-        tabelaAtual = row.table_name;
-        txt += `TABELA ${tabelaAtual}\n`;
+      for (const row of result) {
+        if (tabelaAtual !== row.table_name) {
+          tabelaAtual = row.table_name;
+          txt += `TABELA ${tabelaAtual}\n`;
+        }
+        txt += `- ${row.column_name} ${row.data_type} ${
+          row.is_nullable === "NO" ? "NOT NULL" : ""
+        }\n`;
       }
-      txt += `- ${row.column_name} ${row.data_type} ${
-        row.is_nullable === "NO" ? "NOT NULL" : ""
-      }\n`;
+
+      const filePath = path.join(__dirname, "estrutura_banco.txt");
+      fs.writeFileSync(filePath, txt);
+
+      res.download(filePath, "estrutura_banco.txt");
+    } catch (err) {
+      console.error("Erro em /config/estrutura-banco:", err);
+      res.status(500).json({ erro: "Erro ao gerar estrutura do banco." });
     }
-
-    const filePath = path.join(__dirname, "estrutura_banco.txt");
-    fs.writeFileSync(filePath, txt);
-
-    res.download(filePath, "estrutura_banco.txt");
-  } catch (err) {
-    console.error("Erro em /config/estrutura-banco:", err);
-    res.status(500).json({ erro: "Erro ao gerar estrutura do banco." });
   }
-});
+);
 
 // =========================
 // 🔰 MIDDLEWARE DE ERRO GLOBAL
