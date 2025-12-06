@@ -18,113 +18,26 @@ const fs = require("fs");
 const app = express();
 const prisma = new PrismaClient();
 
-// =========================
-// 🔰 MIDDLEWARES BÁSICOS
-// =========================
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:4173",
-      "https://controle-de-reembolso.vercel.app",
-    ],
-    credentials: true,
-  })
-);
-
-app.use(express.json());
-
-// =========================
-// 🔰 HELPERS GERAIS
-// =========================
-function normalizarNumero(valor) {
-  if (valor === null || valor === undefined || valor === "") return null;
-
-  if (typeof valor === "number") return valor;
-
-  if (typeof valor === "string") {
-    const limpo = valor.replace(/\./g, "").replace(",", ".");
-    const num = Number(limpo);
-    return Number.isNaN(num) ? null : num;
-  }
-
-  return null;
-}
-
-function normalizarData(valor) {
-  if (!valor) return null;
-
-  if (valor instanceof Date && !isNaN(valor)) return valor;
-
-  if (typeof valor === "string") {
-    const v = valor.trim();
-    if (!v) return null;
-
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(v)) {
-      const [dia, mes, ano] = v.split("/");
-      const dt = new Date(Number(ano), Number(mes) - 1, Number(dia));
-      if (!isNaN(dt)) return dt;
-      return null;
-    }
-
-    const dtISO = new Date(v);
-    if (!isNaN(dtISO)) return dtISO;
-  }
-
-  return null;
-}
-
-function gerarToken(usuario) {
-  const payload = {
-    id: usuario.id,
-    email: usuario.email,
-    tipo: usuario.tipo,
-    nome: usuario.nome,
-  };
-
-  const secret = process.env.JWT_SECRET || "segredo_super_secreto";
-
-  return jwt.sign(payload, secret, { expiresIn: "8h" });
-}
-
-function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization || "";
-  const [, token] = authHeader.split(" ");
-
-  if (!token) {
-    return res.status(401).json({ erro: "Token não fornecido." });
-  }
-
-  try {
-    const secret = process.env.JWT_SECRET || "segredo_super_secreto";
-    const decoded = jwt.verify(token, secret);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    console.error("Erro ao validar token:", err);
-    return res.status(401).json({ erro: "Token inválido ou expirado." });
-  }
-}
-
-function adminOnly(req, res, next) {
-  if (!req.user || req.user.tipo !== "admin") {
-    return res.status(403).json({ erro: "Acesso restrito a administradores." });
-  }
-  next();
-}
-
-// =========================
-// 🔰 MODELOS AUXILIARES
-// =========================
+// Helper para acessar o modelo de anexos, qualquer que seja o nome no Prisma
 const arquivosModel =
-  prisma.solicitacaoArquivo ||
-  prisma.solicitacaoArquivos ||
-  prisma.arquivo ||
-  prisma.arquivos ||
+  prisma.solicitacaoArquivo ||      // ex: model Solicitacao_arquivos
+  prisma.solicitacaoArquivos ||       // ex: model SolicitacaoArquivos
+  prisma.arquivo ||                   // ex: model Arquivo
+  prisma.arquivos ||                  // ex: model Arquivos
   null;
 
+function getArquivosModel() {
+  if (!arquivosModel) {
+    console.error(
+      "Modelo de anexos (solicitacao_arquivos / solicitacaoArquivos / arquivo) não encontrado no Prisma Client."
+    );
+  }
+  return arquivosModel;
+}
+
+// Helper para acessar o modelo de histórico de status (model SolicitacaoStatusHistory → tabela solicitacao_status_history)
 function getHistoricoModel() {
-  const Historico = prisma.solicitacaoStatusHistory;
+  const Historico = prisma.solicitacaoStatusHistory; // nome exato do model no Prisma
 
   if (!Historico) {
     console.error(
@@ -133,6 +46,84 @@ function getHistoricoModel() {
   }
 
   return Historico;
+}
+
+const PORT = process.env.PORT || 4000;
+const JWT_SECRET = process.env.JWT_SECRET;
+const APP_BASE_URL = process.env.APP_BASE_URL || "";
+
+console.log("🔧 SMTP DEBUG:", {
+  host: process.env.SMTP_HOST,
+  user: process.env.SMTP_USER,
+  hasPass: !!process.env.SMTP_PASS,
+});
+
+// =========================
+// 🔰 MIDDLEWARES
+// =========================
+app.use(express.json());
+
+// CORS dinâmico (Render + Vercel + localhost)
+const allowedOrigins = ["http://localhost:5173", "http://localhost:3000"];
+
+if (APP_BASE_URL) {
+  allowedOrigins.push(APP_BASE_URL);
+  if (!APP_BASE_URL.startsWith("http")) {
+    allowedOrigins.push(`https://${APP_BASE_URL}`);
+    allowedOrigins.push(`http://${APP_BASE_URL}`);
+  }
+}
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      if (origin.endsWith(".vercel.app") && origin.includes("controle-de-reembolso")) {
+        return callback(null, true);
+      }
+
+      return callback(null, false);
+    },
+    credentials: true,
+  })
+);
+
+// =========================
+// 🔰 MIDDLEWARE — AUTENTICAÇÃO & PERFIL
+// =========================
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ erro: "Token não enviado." });
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    const tipo = String(payload.tipo || "").toLowerCase();
+
+    req.user = {
+      id: payload.id,
+      tipo,
+    };
+    next();
+  } catch (err) {
+    console.error("Erro ao verificar token:", err);
+    return res.status(401).json({ erro: "Token inválido." });
+  }
+}
+
+function adminOnly(req, res, next) {
+  if (!req.user || req.user.tipo !== "admin") {
+    return res.status(403).json({ erro: "Acesso restrito a administradores." });
+  }
+  next();
 }
 
 // =========================
@@ -164,89 +155,129 @@ app.get("/health", async (req, res) => {
     await prisma.$queryRaw`SELECT 1`;
     res.json({ status: "ok" });
   } catch (err) {
-    console.error("Erro em /health:", err);
-    res.status(500).json({ status: "error", detalhe: String(err) });
+    console.error("Erro no /health:", err);
+    res.status(500).json({ status: "error", message: "DB indisponível" });
   }
 });
 
+app.get("/", (req, res) => {
+  res.send("API Reembolso rodando.");
+});
+
 // =========================
-// 🔰 LOGIN & AUTENTICAÇÃO
+// 🔰 AUTH — LOGIN
 // =========================
 app.post("/auth/login", async (req, res) => {
   try {
-    const { email, senha } = req.body;
+    const { email, login, senha } = req.body;
+    const identificador = email || login;
 
-    if (!email || !senha) {
-      return res
-        .status(400)
-        .json({ erro: "E-mail e senha são obrigatórios." });
+    if (!identificador || !senha) {
+      return res.status(400).json({
+        ok: false,
+        success: false,
+        status: "error",
+        mensagem: "Usuário e senha são obrigatórios.",
+      });
     }
 
-    const usuario = await prisma.usuarios.findUnique({
-      where: { email },
+    const usuario = await prisma.usuario.findFirst({
+      where: {
+        OR: [{ email: identificador }, { nome: identificador }],
+      },
     });
 
     if (!usuario) {
-      return res.status(401).json({ erro: "Usuário não encontrado." });
+      return res
+        .status(400)
+        .json({ ok: false, success: false, status: "error", mensagem: "Usuário não encontrado." });
     }
 
-    const senhaValida = await bcrypt.compare(senha, usuario.senha_hash);
-    if (!senhaValida) {
-      return res.status(401).json({ erro: "Usuário ou senha inválidos." });
+    const senhaOk = await bcrypt.compare(senha, usuario.senha_hash);
+    if (!senhaOk) {
+      return res
+        .status(400)
+        .json({ ok: false, success: false, status: "error", mensagem: "Usuário ou senha inválidos." });
     }
 
-    const token = gerarToken(usuario);
+    if (!JWT_SECRET) {
+      console.error("JWT_SECRET não definido");
+      return res.status(500).json({
+        ok: false,
+        success: false,
+        status: "error",
+        mensagem: "Erro de configuração do servidor.",
+      });
+    }
 
-    const usuarioSemHash = {
+    const token = jwt.sign(
+      { id: usuario.id, tipo: (usuario.tipo || "").toLowerCase() },
+      JWT_SECRET,
+      { expiresIn: "8h" }
+    );
+
+    const userPayload = {
       id: usuario.id,
       nome: usuario.nome,
       email: usuario.email,
-      cpf: usuario.cpf,
+      cpfcnpj: usuario.cpfcnpj,
       telefone: usuario.telefone,
       tipo: usuario.tipo,
-      ativo: usuario.ativo,
-      criado_em: usuario.criado_em,
-      atualizado_em: usuario.atualizado_em,
     };
 
     res.json({
+      ok: true,
+      success: true,
+      status: "ok",
+      message: "Login realizado com sucesso.",
       token,
-      usuario: usuarioSemHash,
+      usuario: userPayload,
+      user: userPayload,
+      data: {
+        token,
+        usuario: userPayload,
+        user: userPayload,
+      },
     });
   } catch (err) {
     console.error("Erro em /auth/login:", err);
-    res.status(500).json({ erro: "Erro ao efetuar login." });
+    res
+      .status(500)
+      .json({ ok: false, success: false, status: "error", mensagem: "Erro interno ao tentar fazer login." });
   }
 });
 
+// =========================
+// 🔰 AUTH — RESET SENHA (SOLICITAR)
+// =========================
 app.post("/auth/reset-solicitar", async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email || !String(email).trim()) {
-      return res.status(400).json({ erro: "E-mail é obrigatório." });
-    }
-
-    const usuario = await prisma.usuarios.findUnique({
+    const usuario = await prisma.usuario.findFirst({
       where: { email },
     });
-
     if (!usuario) {
-      return res
-        .status(404)
-        .json({ erro: "Usuário com esse e-mail não foi encontrado." });
+      return res.status(400).json({ erro: "Usuário não encontrado." });
     }
 
-    const secret = process.env.JWT_SECRET || "segredo_super_secreto";
-    const token = jwt.sign({ id: usuario.id }, secret, { expiresIn: "1h" });
+    const token = Math.random().toString(36).substring(2, 15);
+    const expires = new Date(Date.now() + 60 * 60 * 1000);
 
-    const resetLink = `${
-      process.env.APP_BASE_URL || "https://controle-de-reembolso.vercel.app"
-    }/resetar-senha?token=${token}`;
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        reset_token: token,
+        reset_token_expires: expires,
+      },
+    });
+
+    const base = APP_BASE_URL.replace(/\/$/, "");
+    const resetLink = `${base}/resetar-senha/${token}`;
 
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT || 587,
+      port: Number(process.env.SMTP_PORT),
       secure: process.env.SMTP_SECURE === "true",
       auth: {
         user: process.env.SMTP_USER,
@@ -272,95 +303,125 @@ app.post("/auth/reset-solicitar", async (req, res) => {
   }
 });
 
+// Alias compatível com o front
 app.post("/auth/esqueci-senha", async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email || !String(email).trim()) {
-      return res.status(400).json({ erro: "E-mail é obrigatório." });
+    if (!email) {
+      return res.status(400).json({ ok: false, mensagem: "E-mail é obrigatório." });
     }
 
-    const usuario = await prisma.usuarios.findUnique({
+    const usuario = await prisma.usuario.findFirst({
       where: { email },
     });
 
     if (!usuario) {
-      return res
-        .status(404)
-        .json({ erro: "Usuário com esse e-mail não foi encontrado." });
+      return res.json({
+        ok: true,
+        emailEnviado: false,
+      });
     }
 
-    const secret = process.env.JWT_SECRET || "segredo_super_secreto";
-    const token = jwt.sign({ id: usuario.id }, secret, { expiresIn: "1h" });
+    const token = Math.random().toString(36).substring(2, 15);
 
-    const resetLink = `${
-      process.env.APP_BASE_URL || "https://controle-de-reembolso.vercel.app"
-    }/resetar-senha?token=${token}`;
-
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT || 587,
-      secure: process.env.SMTP_SECURE === "true",
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        reset_token: token,
       },
     });
 
-    await transporter.sendMail({
-      from: process.env.MAIL_FROM,
-      to: usuario.email,
-      subject: "Redefinição de senha - Controle de Reembolso",
-      html: `
-        <p>Olá, ${usuario.nome}</p>
-        <p>Clique no link abaixo para redefinir sua senha:</p>
-        <p><a href="${resetLink}">${resetLink}</a></p>
-      `,
-    });
+    const base = (APP_BASE_URL || "").replace(/\/$/, "");
+    const resetLink = `${
+      base || "https://controle-de-reembolso.vercel.app"
+    }/resetar-senha/${token}`;
 
-    res.json({ ok: true });
+    let emailEnviado = false;
+
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: Number(process.env.SMTP_PORT) || 587,
+          secure: process.env.SMTP_SECURE === "true",
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+          connectionTimeout: 5000,
+          greetingTimeout: 5000,
+          socketTimeout: 5000,
+        });
+
+        await transporter.sendMail({
+          from: process.env.MAIL_FROM || process.env.SMTP_USER,
+          to: usuario.email,
+          subject: "Redefinição de senha - Controle de Reembolso",
+          html: `
+            <p>Olá, ${usuario.nome}</p>
+            <p>Clique no link abaixo para redefinir sua senha:</p>
+            <p><a href="${resetLink}">${resetLink}</a></p>
+          `,
+        });
+
+        emailEnviado = true;
+      } catch (errMail) {
+        console.error("⚠ Erro ao enviar e-mail de redefinição:", errMail);
+        console.log("🔗 Link de redefinição gerado:", resetLink);
+      }
+    } else {
+      console.warn(
+        "⚠ SMTP não configurado. E-mail de reset NÃO enviado (HOST/USER/PASS ausentes)."
+      );
+      console.log("🔗 Link de redefinição gerado:", resetLink);
+    }
+
+    return res.json({ ok: true, emailEnviado });
   } catch (err) {
     console.error("Erro em /auth/esqueci-senha:", err);
-    res.status(500).json({ erro: "Erro ao solicitar redefinição de senha." });
+    return res.status(200).json({
+      ok: false,
+      emailEnviado: false,
+      mensagem: "Erro ao solicitar redefinição de senha.",
+    });
   }
 });
 
-app.post("/auth/resetar-senha", async (req, res) => {
+// =========================
+// 🔰 AUTH — RESET SENHA (CONFIRMAR)
+// =========================
+app.post("/auth/reset-confirmar", async (req, res) => {
   try {
     const { token, novaSenha } = req.body;
 
     if (!token || !novaSenha) {
-      return res
-        .status(400)
-        .json({ erro: "Token e nova senha são obrigatórios." });
+      return res.status(400).json({ erro: "Token e nova senha são obrigatórios." });
     }
 
-    const secret = process.env.JWT_SECRET || "segredo_super_secreto";
-    let payload;
-    try {
-      payload = jwt.verify(token, secret);
-    } catch (err) {
-      return res.status(400).json({ erro: "Token inválido ou expirado." });
-    }
-
-    const usuario = await prisma.usuarios.findUnique({
-      where: { id: payload.id },
+    const usuario = await prisma.usuario.findFirst({
+      where: {
+        reset_token: token,
+      },
     });
 
     if (!usuario) {
-      return res.status(404).json({ erro: "Usuário não encontrado." });
+      return res.status(400).json({ erro: "Token inválido." });
     }
 
     const hash = await bcrypt.hash(novaSenha, 10);
 
-    await prisma.usuarios.update({
+    await prisma.usuario.update({
       where: { id: usuario.id },
-      data: { senha_hash: hash },
+      data: {
+        senha_hash: hash,
+        reset_token: null,
+      },
     });
 
     res.json({ ok: true });
   } catch (err) {
-    console.error("Erro em /auth/resetar-senha:", err);
+    console.error("Erro em /auth/reset-confirmar:", err);
     res.status(500).json({ erro: "Erro ao redefinir senha." });
   }
 });
@@ -368,11 +429,31 @@ app.post("/auth/resetar-senha", async (req, res) => {
 // =========================
 // 🔰 USUÁRIOS
 // =========================
-app.get("/usuarios", authMiddleware, adminOnly, async (req, res) => {
+app.get("/usuarios/:id", async (req, res) => {
   try {
-    const usuarios = await prisma.usuarios.findMany({
-      orderBy: { id: "asc" },
+    const { id } = req.params;
+
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: Number(id) },
     });
+
+    if (!usuario) {
+      return res.status(404).json({ erro: "Usuário não encontrado." });
+    }
+
+    res.json(usuario);
+  } catch (err) {
+    console.error("Erro em GET /usuarios/:id:", err);
+    res.status(500).json({ erro: "Erro ao buscar usuário." });
+  }
+});
+
+app.get("/usuarios", async (req, res) => {
+  try {
+    const usuarios = await prisma.usuario.findMany({
+      orderBy: { nome: "asc" },
+    });
+
     res.json(usuarios);
   } catch (err) {
     console.error("Erro em GET /usuarios:", err);
@@ -380,65 +461,36 @@ app.get("/usuarios", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-app.get("/usuarios/me", authMiddleware, async (req, res) => {
-  try {
-    const usuario = await prisma.usuarios.findUnique({
-      where: { id: req.user.id },
-    });
+// Helper p/ mapear solicitante e anexos
+function mapSolicitacaoComSolicitante(s) {
+  const nomeSolicitante = s.usuario?.nome || s.solicitante_nome || s.solicitante || "";
 
-    if (!usuario) {
-      return res.status(404).json({ erro: "Usuário não encontrado." });
-    }
+  const arquivosArray = s.arquivos || s.solicitacao_arquivos || [];
 
-    res.json({
-      id: usuario.id,
-      nome: usuario.nome,
-      email: usuario.email,
-      cpf: usuario.cpf,
-      telefone: usuario.telefone,
-      tipo: usuario.tipo,
-      ativo: usuario.ativo,
-      criado_em: usuario.criado_em,
-      atualizado_em: usuario.atualizado_em,
-    });
-  } catch (err) {
-    console.error("Erro em GET /usuarios/me:", err);
-    res.status(500).json({ erro: "Erro ao buscar dados do usuário." });
-  }
-});
+  const count = arquivosArray.length;
 
-app.put("/usuarios/me", authMiddleware, async (req, res) => {
-  try {
-    const { nome, telefone } = req.body;
+  return {
+    ...s,
+    solicitante_nome: nomeSolicitante,
+    solicitante: nomeSolicitante,
+    solicitacao_arquivos: arquivosArray,
+    arquivos: arquivosArray,
+    documentos: arquivosArray,
 
-    const atualizado = await prisma.usuarios.update({
-      where: { id: req.user.id },
-      data: {
-        nome: nome ?? undefined,
-        telefone: telefone ?? undefined,
-      },
-    });
+    docs: count,
+    docs_count: count,
+    documentos_count: count,
+    qtd_arquivos: count,
+    qtd_documentos: count,
+  };
+}
 
-    res.json({
-      id: atualizado.id,
-      nome: atualizado.nome,
-      email: atualizado.email,
-      cpf: atualizado.cpf,
-      telefone: atualizado.telefone,
-      tipo: atualizado.tipo,
-      ativo: atualizado.ativo,
-      criado_em: atualizado.criado_em,
-      atualizado_em: atualizado.atualizado_em,
-    });
-  } catch (err) {
-    console.error("Erro em PUT /usuarios/me:", err);
-    res.status(500).json({ erro: "Erro ao atualizar dados do usuário." });
-  }
-});
-
+// =========================
+// 🔰 USUÁRIOS — CRUD (Configurações)
+// =========================
 app.post("/usuarios", authMiddleware, adminOnly, async (req, res) => {
   try {
-    const { nome, email, senha, tipo, cpf, telefone, ativo } = req.body;
+    const { nome, email, senha, tipo, ativo, cpfcnpj, telefone } = req.body;
 
     if (!nome || !email || !senha) {
       return res
@@ -446,82 +498,64 @@ app.post("/usuarios", authMiddleware, adminOnly, async (req, res) => {
         .json({ erro: "Nome, e-mail e senha são obrigatórios." });
     }
 
-    const existente = await prisma.usuarios.findUnique({
-      where: { email },
-    });
+    const existente = await prisma.usuario.findFirst({ where: { email } });
 
     if (existente) {
-      return res.status(400).json({ erro: "E-mail já cadastrado." });
+      return res
+        .status(400)
+        .json({ erro: "Já existe um usuário cadastrado com esse e-mail." });
     }
 
     const hash = await bcrypt.hash(senha, 10);
 
-    const criado = await prisma.usuarios.create({
+    const novo = await prisma.usuario.create({
       data: {
-        nome,
-        email,
+        nome: String(nome).trim(),
+        email: String(email).trim(),
         senha_hash: hash,
-        tipo: tipo || "usuario",
-        cpf: cpf || null,
-        telefone: telefone || null,
+        tipo: tipo || "user",
         ativo: ativo !== undefined ? !!ativo : true,
+        cpfcnpj: cpfcnpj || null,
+        telefone: telefone || null,
+        primeiro_acesso: true,
       },
     });
 
-    res.json({
-      id: criado.id,
-      nome: criado.nome,
-      email: criado.email,
-      cpf: criado.cpf,
-      telefone: criado.telefone,
-      tipo: criado.tipo,
-      ativo: criado.ativo,
-      criado_em: criado.criado_em,
-      atualizado_em: criado.atualizado_em,
-    });
+    res.json(novo);
   } catch (err) {
     console.error("Erro em POST /usuarios:", err);
-    res.status(500).json({ erro: "Erro ao criar usuário." });
+    res.status(500).json({ erro: "Erro ao salvar usuário." });
   }
 });
 
 app.put("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nome, email, senha, tipo, cpf, telefone, ativo } = req.body;
+    const { nome, email, senha, tipo, ativo, cpfcnpj, telefone } = req.body;
 
-    const dadosAtualizar = {
-      nome: nome ?? undefined,
-      email: email ?? undefined,
-      tipo: tipo ?? undefined,
-      cpf: cpf ?? undefined,
-      telefone: telefone ?? undefined,
-      ativo: ativo !== undefined ? !!ativo : undefined,
-    };
+    const data = {};
+
+    if (nome !== undefined) data.nome = String(nome).trim();
+    if (email !== undefined) data.email = String(email).trim();
+    if (tipo !== undefined) data.tipo = tipo;
+    if (ativo !== undefined) data.ativo = !!ativo;
+    if (cpfcnpj !== undefined) data.cpfcnpj = cpfcnpj || null;
+    if (telefone !== undefined) data.telefone = telefone || null;
 
     if (senha) {
-      dadosAtualizar.senha_hash = await bcrypt.hash(senha, 10);
+      data.senha_hash = await bcrypt.hash(senha, 10);
+      data.primeiro_acesso = false;
     }
 
-    const atualizado = await prisma.usuarios.update({
+    const atualizado = await prisma.usuario.update({
       where: { id: Number(id) },
-      data: dadosAtualizar,
+      data,
     });
 
-    res.json({
-      id: atualizado.id,
-      nome: atualizado.nome,
-      email: atualizado.email,
-      cpf: atualizado.cpf,
-      telefone: atualizado.telefone,
-      tipo: atualizado.tipo,
-      ativo: atualizado.ativo,
-      criado_em: atualizado.criado_em,
-      atualizado_em: atualizado.atualizado_em,
-    });
+    res.json(atualizado);
   } catch (err) {
     console.error("Erro em PUT /usuarios/:id:", err);
-    res.status(500).json({ erro: "Erro ao atualizar usuário." });
+    res.status(500).json({ erro: "Erro ao salvar usuário." });
   }
 });
 
@@ -529,7 +563,13 @@ app.delete("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
 
-    await prisma.usuarios.delete({
+    if (req.user && req.user.id === Number(id)) {
+      return res
+        .status(400)
+        .json({ erro: "Você não pode excluir o próprio usuário logado." });
+    }
+
+    await prisma.usuario.delete({
       where: { id: Number(id) },
     });
 
@@ -565,20 +605,19 @@ app.post("/descricoes", authMiddleware, adminOnly, async (req, res) => {
     if (!descricao || !String(descricao).trim()) {
       return res
         .status(400)
-        .json({ erro: "Descrição é obrigatória." });
+        .json({ erro: "Descrição da despesa é obrigatória." });
     }
 
-    const criada = await prisma.descricoes.create({
-      data: {
-        descricao,
-        ativo: ativo !== undefined ? !!ativo : true,
-      },
-    });
+    const [novo] = await prisma.$queryRaw`
+      INSERT INTO descricoes (descricao, ativo)
+      VALUES (${String(descricao).trim()}, ${ativo !== undefined ? !!ativo : true})
+      RETURNING id, descricao, ativo;
+    `;
 
-    res.json(criada);
+    res.json(novo);
   } catch (err) {
     console.error("Erro em POST /descricoes:", err);
-    res.status(500).json({ erro: "Erro ao criar descrição." });
+    res.status(500).json({ erro: "Erro ao salvar descrição." });
   }
 });
 
@@ -587,15 +626,20 @@ app.put("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
     const { id } = req.params;
     const { descricao, ativo } = req.body;
 
-    const atualizada = await prisma.descricoes.update({
-      where: { id: Number(id) },
-      data: {
-        descricao: descricao ?? undefined,
-        ativo: ativo !== undefined ? !!ativo : undefined,
-      },
-    });
+    const [atualizado] = await prisma.$queryRaw`
+      UPDATE descricoes
+      SET
+        descricao = COALESCE(${descricao !== undefined ? String(descricao).trim() : null}, descricao),
+        ativo = COALESCE(${ativo !== undefined ? !!ativo : null}, ativo)
+      WHERE id = ${Number(id)}
+      RETURNING id, descricao, ativo;
+    `;
 
-    res.json(atualizada);
+    if (!atualizado) {
+      return res.status(404).json({ erro: "Descrição não encontrada." });
+    }
+
+    res.json(atualizado);
   } catch (err) {
     console.error("Erro em PUT /descricoes/:id:", err);
     res.status(500).json({ erro: "Erro ao atualizar descrição." });
@@ -606,9 +650,9 @@ app.delete("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
 
-    await prisma.descricoes.delete({
-      where: { id: Number(id) },
-    });
+    await prisma.$executeRaw`
+      DELETE FROM descricoes WHERE id = ${Number(id)};
+    `;
 
     res.json({ ok: true });
   } catch (err) {
@@ -620,10 +664,32 @@ app.delete("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
 // =========================
 // 🔰 STATUS
 // =========================
-app.get("/status", async (req, res) => {
+app.post("/status", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { nome, descricao, ativo } = req.body;
+
+    if (!nome || !String(nome).trim()) {
+      return res.status(400).json({ erro: "Nome do status é obrigatório." });
+    }
+
+    const novo = await prisma.status.create({
+      data: {
+        nome: String(nome).trim(),
+        descricao: descricao || null,
+        ativo: ativo !== undefined ? !!ativo : true,
+      },
+    });
+
+    res.json(novo);
+  } catch (err) {
+    console.error("Erro em POST /status:", err);
+    res.status(500).json({ erro: "Erro ao salvar status." });
+  }
+});
+
+app.get("/status", authMiddleware, async (req, res) => {
   try {
     const lista = await prisma.status.findMany({
-      where: { ativo: true },
       orderBy: { id: "asc" },
     });
     res.json(lista);
@@ -633,39 +699,19 @@ app.get("/status", async (req, res) => {
   }
 });
 
-app.post("/status", authMiddleware, adminOnly, async (req, res) => {
-  try {
-    const { nome, ativo } = req.body;
-
-    if (!nome || !String(nome).trim()) {
-      return res.status(400).json({ erro: "Nome do status é obrigatório." });
-    }
-
-    const criado = await prisma.status.create({
-      data: {
-        nome,
-        ativo: ativo !== undefined ? !!ativo : true,
-      },
-    });
-
-    res.json(criado);
-  } catch (err) {
-    console.error("Erro em POST /status:", err);
-    res.status(500).json({ erro: "Erro ao criar status." });
-  }
-});
-
 app.put("/status/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nome, ativo } = req.body;
+    const { nome, descricao, ativo } = req.body;
+
+    const data = {};
+    if (nome !== undefined) data.nome = String(nome).trim();
+    if (descricao !== undefined) data.descricao = descricao || null;
+    if (ativo !== undefined) data.ativo = !!ativo;
 
     const atualizado = await prisma.status.update({
       where: { id: Number(id) },
-      data: {
-        nome: nome ?? undefined,
-        ativo: ativo !== undefined ? !!ativo : undefined,
-      },
+      data,
     });
 
     res.json(atualizado);
@@ -675,70 +721,49 @@ app.put("/status/:id", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-app.delete("/status/:id", authMiddleware, adminOnly, async (req, res) => {
+// =========================
+// 🔰 SOLICITAÇÕES — LISTAR
+// =========================
+app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+    const usuarioId = Number(id);
 
-    await prisma.status.delete({
-      where: { id: Number(id) },
-    });
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("Erro em DELETE /status/:id:", err);
-    res.status(500).json({ erro: "Erro ao excluir status." });
-  }
-});
-
-// =========================
-// 🔰 SOLICITAÇÕES — LISTAGEM
-// =========================
-function mapSolicitacaoComSolicitante(s) {
-  const nomeSolicitante =
-    (s.usuario && s.usuario.nome) ||
-    s.solicitante_nome ||
-    s.solicitante ||
-    "";
-
-  const arquivosArray = s.arquivos || s.solicitacao_arquivos || [];
-
-  const count = arquivosArray.length;
-
-  return {
-    ...s,
-    solicitante_nome: nomeSolicitante,
-    solicitante: nomeSolicitante,
-    solicitacao_arquivos: arquivosArray,
-    arquivos: arquivosArray,
-    documentos: arquivosArray,
-
-    docs: count,
-    docs_count: count,
-    documentos_count: count,
-    qtd_arquivos: count,
-    qtd_documentos: count,
-  };
-}
-
-app.get("/solicitacoes", authMiddleware, async (req, res) => {
-  try {
-    let where = {};
-    if (req.user.tipo !== "admin") {
-      where.usuario_id = req.user.id;
+    if (req.user.tipo !== "admin" && req.user.id !== usuarioId) {
+      return res.status(403).json({ erro: "Acesso negado para este usuário." });
     }
 
-    const solicitacoes = await prisma.solicitacao.findMany({
-      where,
-      orderBy: { id: "desc" },
+    const dados = await prisma.solicitacao.findMany({
+      where: { usuario_id: usuarioId },
+      orderBy: { criado_em: "desc" },
       include: {
+        arquivos: true,
         usuario: true,
-        anexos: true,
       },
     });
 
-    const mapped = solicitacoes.map(mapSolicitacaoComSolicitante);
+    const resposta = dados.map(mapSolicitacaoComSolicitante);
 
-    res.json(mapped);
+    res.json(resposta);
+  } catch (err) {
+    console.error("Erro em GET /solicitacoes/usuario/:id:", err);
+    res.status(500).json({ erro: "Erro ao buscar solicitações." });
+  }
+});
+
+app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const registros = await prisma.solicitacao.findMany({
+      orderBy: { criado_em: "desc" },
+      include: {
+        arquivos: true,
+        usuario: true,
+      },
+    });
+
+    const resposta = registros.map(mapSolicitacaoComSolicitante);
+
+    res.json(resposta);
   } catch (err) {
     console.error("Erro em GET /solicitacoes:", err);
     res.status(500).json({ erro: "Erro ao listar solicitações." });
@@ -746,131 +771,143 @@ app.get("/solicitacoes", authMiddleware, async (req, res) => {
 });
 
 // =========================
-// 🔰 SOLICITAÇÕES — CRIAÇÃO
+// 🔰 HELPERS — NÚMEROS E DATAS
+// =========================
+function normalizarNumero(valor) {
+  if (valor === null || valor === undefined || valor === "") return null;
+  if (typeof valor === "number") return valor;
+  const limpo = String(valor).replace(/\./g, "").replace(",", ".");
+  const num = Number(limpo);
+  return Number.isNaN(num) ? null : num;
+}
+
+const camposPermitidos = [
+  "usuario_id",
+  "solicitante_nome",
+  "beneficiario_nome",
+  "beneficiario_doc",
+  "numero_nf",
+  "data_nf",
+  "valor_nf",
+  "emitente_nome",
+  "emitente_doc",
+  "status",
+  "data_solicitacao",
+  "data_ultima_mudanca",
+  "protocolo",
+  "valor",
+  "descricao",
+  "data_pagamento",
+  "valor_reembolso",
+];
+
+const camposNumericos = ["valor_nf", "valor", "valor_reembolso"];
+
+const camposData = ["data_nf", "data_solicitacao", "data_ultima_mudanca", "data_pagamento"];
+
+function normalizarData(valor) {
+  if (valor === null || valor === undefined || valor === "") return null;
+  if (valor instanceof Date) return valor;
+
+  const s = String(valor).trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const d = new Date(s + "T00:00:00.000Z");
+    if (isNaN(d.getTime())) return null;
+    return d;
+  }
+
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return null;
+  return d;
+}
+
+// =========================
+// 🔰 SOLICITAÇÕES — CRIAR / ATUALIZAR
 // =========================
 app.post("/solicitacoes", authMiddleware, async (req, res) => {
   try {
     const dados = req.body;
-    const usuarioId = dados.usuario_id || req.user.id;
+
+    let usuarioIdSolicitante = Number(dados.usuario_id || req.user.id);
+    if (Number.isNaN(usuarioIdSolicitante) || usuarioIdSolicitante <= 0) {
+      usuarioIdSolicitante = req.user.id;
+    }
+
+    if (req.user.tipo !== "admin" && req.user.id !== usuarioIdSolicitante) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a criar solicitação para outro solicitante.",
+      });
+    }
 
     const dataCriar = {
-      usuario_id: usuarioId,
-      solicitante_nome: dados.solicitante_nome || dados.solicitante || null,
-      beneficiario_nome: dados.beneficiario_nome || null,
-      beneficiario_doc: dados.beneficiario_doc || null,
-      numero_nf: dados.numero_nf || null,
-      data_nf: normalizarData(dados.data_nf) || null,
-      data_solicitacao:
-        normalizarData(dados.data_solicitacao) ||
-        normalizarData(dados.data) ||
-        new Date(),
-      valor_nf: normalizarNumero(dados.valor_nf),
-      emitente_nome: dados.emitente_nome || null,
-      emitente_doc: dados.emitente_doc || null,
-      descricao_id: dados.descricao_id || null,
-      status: dados.status || "Em análise",
-      observacao: dados.observacao || null,
+      usuario_id: usuarioIdSolicitante,
     };
 
-    if (!dataCriar.status) {
-      dataCriar.status = dados.status || "Em análise";
-    }
+    for (const campo of camposPermitidos) {
+      if (!Object.prototype.hasOwnProperty.call(dados, campo)) continue;
+      let valor = dados[campo];
 
-    const nova = await prisma.solicitacao.create({
-      data: dataCriar,
-    });
+      if (valor === undefined || valor === "") continue;
+      if (campo === "usuario_id") continue;
 
-    const dataHistorico =
-      normalizarData(dados.data) ||
-      normalizarData(dados.data_solicitacao) ||
-      dataCriar.data_solicitacao ||
-      new Date();
-
-    const Historico = getHistoricoModel();
-    if (Historico) {
-      try {
-        await Historico.create({
-          data: {
-            solicitacao_id: nova.id,
-            status: nova.status || dataCriar.status || "Em análise",
-            data: dataHistorico,
-            origem: "Criação",
-            obs: null,
-          },
-        });
-      } catch (errHist) {
-        console.error("Erro ao gravar histórico inicial da solicitação:", errHist);
+      if (camposNumericos.includes(campo)) {
+        const num = normalizarNumero(valor);
+        if (num === null) continue;
+        dataCriar[campo] = num;
+        continue;
       }
+
+      if (camposData.includes(campo)) {
+        const dt = normalizarData(valor);
+        if (!dt) continue;
+        dataCriar[campo] = dt;
+        continue;
+      }
+
+      dataCriar[campo] = valor;
     }
 
-    res.json(nova);
+    if (!dataCriar.status) {
+  dataCriar.status = dados.status || "Em análise";
+}
+
+const nova = await prisma.solicitacao.create({
+  data: dataCriar,
+});
+
+// Preferência: data enviada pelo front → data_solicitacao → agora
+const dataHistorico =
+  normalizarData(dados.data) ||
+  normalizarData(dados.data_solicitacao) ||
+  dataCriar.data_solicitacao ||
+  new Date();
+
+const Historico = getHistoricoModel();
+if (Historico) {
+  try {
+    await Historico.create({
+      data: {
+        solicitacao_id: nova.id,
+        status: nova.status || dataCriar.status || "Em análise",
+        data: dataHistorico,
+        origem: "Criação",
+        obs: null,
+      },
+    });
+  } catch (errHist) {
+    console.error("Erro ao gravar histórico inicial da solicitação:", errHist);
+  }
+}
+
+res.json(nova);
+
   } catch (err) {
     console.error("Erro em POST /solicitacoes:", err);
     res.status(500).json({ erro: "Erro ao criar solicitação." });
   }
 });
 
-// =========================
-// 🔰 SOLICITAÇÕES — UPLOAD ARQUIVOS
-// =========================
-app.post(
-  "/solicitacoes/:id/arquivos",
-  authMiddleware,
-  upload.array("arquivos"),
-  async (req, res) => {
-    try {
-      const solicitacaoId = Number(req.params.id);
-
-      const solicitacao = await prisma.solicitacao.findUnique({
-        where: { id: solicitacaoId },
-      });
-
-      if (!solicitacao) {
-        return res.status(404).json({ erro: "Solicitação não encontrada." });
-      }
-
-      if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
-        return res.status(403).json({
-          erro: "Usuário não autorizado a enviar arquivos para esta solicitação.",
-        });
-      }
-
-      if (!arquivosModel) {
-        return res.status(500).json({
-          erro: "Modelo de arquivos não configurado no Prisma.",
-        });
-      }
-
-      const arquivosSalvos = [];
-
-      for (const file of req.files) {
-        const registro = await arquivosModel.create({
-          data: {
-            solicitacao_id: solicitacaoId,
-            caminho: file.filename,
-            nome_original: file.originalname,
-            mime_type: file.mimetype,
-            tamanho: file.size,
-          },
-        });
-
-        arquivosSalvos.push(registro);
-      }
-
-      res.json(arquivosSalvos);
-    } catch (err) {
-      console.error("Erro em POST /solicitacoes/:id/arquivos:", err);
-      res.status(500).json({
-        erro: "Erro ao enviar arquivo.",
-        detalhe: err?.message || String(err),
-      });
-    }
-  }
-);
-
-// =========================
-// 🔰 SOLICITAÇÕES — UPDATE
-// =========================
 app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
@@ -892,25 +929,6 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
         erro: "Usuário não autorizado a alterar esta solicitação.",
       });
     }
-
-    const camposPermitidos = [
-      "solicitante_nome",
-      "beneficiario_nome",
-      "beneficiario_doc",
-      "numero_nf",
-      "data_nf",
-      "data_solicitacao",
-      "valor_nf",
-      "emitente_nome",
-      "emitente_doc",
-      "descricao_id",
-      "status",
-      "observacao",
-      "usuario_id",
-    ];
-
-    const camposNumericos = ["valor_nf"];
-    const camposData = ["data_nf", "data_solicitacao"];
 
     const dataAtualizar = {};
     let statusMudou = false;
@@ -965,38 +983,41 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
     });
 
     // 🔹 Se o status mudou (via edição genérica), registra no histórico
-    if (statusMudou) {
-      const Historico = getHistoricoModel();
-      if (Historico) {
-        try {
-          const obsHistorico =
-            dados.obs ??
-            dados.observacao ??
-            null;
+if (statusMudou) {
+  const Historico = getHistoricoModel();
+  if (Historico) {
+    try {
+      const obsHistorico =
+        dados.obs ??
+        dados.observacao ??
+        null;
 
-          // ✅ DATA DO MOVIMENTO (EDIÇÃO): usa preferencialmente a data enviada pelo modal (dados.data)
-          const dataHistorico =
-            normalizarData(dados.data) ||
-            atualizado.data_ultima_mudanca ||
-            new Date();
+      // ✅ DATA DO MOVIMENTO: usa SEMPRE a data_ultima_mudanca (ou agora)
+        const dataHistorico =
+        normalizarData(dados.data) ||               // se vier "data" no body
+        normalizarData(dados.data_nf) ||            // se vier "data_nf"
+        normalizarData(dados.data_solicitacao) ||   // se vier "data_solicitacao"
+        existente.data_nf ||                        // senão, usa o que já está na solicitação
+        existente.data_solicitacao ||
+        new Date();                                 // fallback absoluto (evita erro)
 
-          await Historico.create({
-            data: {
-              solicitacao_id: solicitacaoId,
-              status: atualizado.status,
-              data: dataHistorico,
-              origem: "Edição",
-              obs: obsHistorico,
-            },
-          });
-        } catch (errHist) {
-          console.error(
-            "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
-            errHist
-          );
-        }
-      }
+      await Historico.create({
+        data: {
+          solicitacao_id: solicitacaoId,
+          status: atualizado.status,
+          data: dataHistorico,
+          origem: "Edição",
+          obs: obsHistorico,
+        },
+      });
+    } catch (errHist) {
+      console.error(
+        "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
+        errHist
+      );
     }
+  }
+}
 
     res.json(atualizado);
   } catch (err) {
@@ -1014,6 +1035,163 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
 
     const solicitacao = await prisma.solicitacao.findUnique({
       where: { id: solicitacaoId },
+      include: { arquivos: true },
+    });
+
+    if (!solicitacao) {
+      return res.status(404).json({ erro: "Solicitação não encontrada." });
+    }
+
+    // Regras:
+    // - Admin pode excluir qualquer solicitação
+    // - Usuário só pode excluir as próprias
+    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a excluir esta solicitação.",
+      });
+    }
+
+    const arquivos = solicitacao.arquivos || [];
+    for (const arq of arquivos) {
+      if (!arq.path) continue;
+      const fullPath = path.join(uploadDir, arq.path);
+      try {
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+        }
+      } catch (e) {
+        console.error(
+          `Erro ao remover arquivo físico (id=${arq.id}, path=${arq.path}):`,
+          e
+        );
+      }
+    }
+
+    // Deleta registros de arquivos, se o modelo existir
+    if (prisma.solicitacaoArquivo?.deleteMany) {
+      try {
+        await prisma.solicitacaoArquivo.deleteMany({
+          where: { solicitacao_id: solicitacaoId },
+        });
+      } catch (e) {
+        console.error(
+          "Erro ao apagar registros de arquivos (ignorando e prosseguindo):",
+          e
+        );
+      }
+    }
+
+    // Remove histórico de status (se o modelo existir)
+const Historico = getHistoricoModel();
+if (Historico) {
+  try {
+    await Historico.deleteMany({
+      where: { solicitacao_id: solicitacaoId },
+    });
+  } catch (e) {
+    console.error(
+      "Erro ao apagar histórico de status da solicitação (ignorando e prosseguindo):",
+      e
+    );
+  }
+}
+
+    await prisma.solicitacao.delete({
+      where: { id: solicitacaoId },
+    });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro em DELETE /solicitacoes/:id:", err);
+    res.status(500).json({ erro: "Erro ao excluir solicitação." });
+  }
+});
+
+// =========================
+// 🔰 UPLOAD DE ARQUIVOS
+// =========================
+app.post(
+  "/solicitacoes/:id/arquivos",
+  authMiddleware,
+  upload.single("file"), // ou "arquivo", conforme está no frontend
+  async (req, res) => {
+    try {
+      const solicitacaoId = Number(req.params.id);
+      const { tipo } = req.body;
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ erro: "Nenhum arquivo enviado." });
+      }
+
+      const solicitacao = await prisma.solicitacao.findUnique({
+        where: { id: solicitacaoId },
+      });
+
+      if (!solicitacao) {
+        return res.status(404).json({ erro: "Solicitação não encontrada." });
+      }
+
+      // Segurança: admin pode tudo, usuário só na própria solicitação
+      if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
+        return res.status(403).json({
+          erro: "Usuário não autorizado a anexar arquivos nesta solicitação.",
+        });
+      }
+
+      const Arquivos = getArquivosModel();
+      if (!Arquivos) {
+        return res
+          .status(500)
+          .json({ erro: "Modelo de anexos não configurado na API." });
+      }
+
+      // 🔁 Tenta com todos os campos; se der erro de schema, tenta com o mínimo
+      let registro;
+      try {
+        registro = await Arquivos.create({
+          data: {
+            solicitacao_id: solicitacaoId,
+            tipo: tipo || "outro",
+            original_name: file.originalname,
+            mime_type: file.mimetype,
+            path: file.filename,
+          },
+        });
+      } catch (errPrisma) {
+        console.error(
+          "Falha ao criar registro de anexo com todos os campos, tentando apenas campos mínimos:",
+          errPrisma
+        );
+        registro = await Arquivos.create({
+          data: {
+            solicitacao_id: solicitacaoId,
+            original_name: file.originalname,
+            path: file.filename,
+          },
+        });
+      }
+
+      res.json(registro);
+    } catch (err) {
+      console.error("Erro em POST /solicitacoes/:id/arquivos:", err);
+      res.status(500).json({
+        erro: "Erro ao enviar arquivo.",
+        detalhe: err?.message || String(err),
+      });
+    }
+  }
+);
+
+// =========================
+// 🔰 LISTAR ARQUIVOS
+// =========================
+app.get("/solicitacoes/:id/arquivos", authMiddleware, async (req, res) => {
+  try {
+    const solicitacaoId = Number(req.params.id);
+
+    const solicitacao = await prisma.solicitacao.findUnique({
+      where: { id: solicitacaoId },
     });
 
     if (!solicitacao) {
@@ -1022,23 +1200,128 @@ app.delete("/solicitacoes/:id", authMiddleware, async (req, res) => {
 
     if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
       return res.status(403).json({
-        erro: "Usuário não autorizado a excluir esta solicitação.",
+        erro: "Usuário não autorizado a visualizar arquivos desta solicitação.",
       });
     }
 
-    await prisma.solicitacao.delete({
-      where: { id: solicitacaoId },
+    const Arquivos = getArquivosModel();
+    if (!Arquivos) {
+      return res
+        .status(500)
+        .json({ erro: "Modelo de anexos não configurado na API." });
+    }
+
+    const arquivos = await Arquivos.findMany({
+      where: { solicitacao_id: solicitacaoId },
+      orderBy: { created_at: "desc" },
     });
 
-    res.json({ ok: true });
+    res.json(arquivos);
   } catch (err) {
-    console.error("Erro em DELETE /solicitacoes/:id:", err);
-    res.status(500).json({ erro: "Erro ao excluir solicitação." });
+    console.error("Erro em GET /solicitacoes/:id/arquivos:", err);
+    res.status(500).json({ erro: "Erro ao listar arquivos." });
   }
 });
 
 // =========================
-// 🔰 SOLICITAÇÕES — HISTÓRICO (POR SOLICITAÇÃO)
+// 🔰 DOWNLOAD ARQUIVO
+// =========================
+app.get("/arquivos/:id/download", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const Arquivos = getArquivosModel();
+    if (!Arquivos) {
+      return res
+        .status(500)
+        .json({ erro: "Modelo de anexos não configurado na API." });
+    }
+
+    const arquivo = await Arquivos.findUnique({
+      where: { id: Number(id) },
+    });
+
+    if (!arquivo) {
+      return res.status(404).json({ erro: "Arquivo não encontrado." });
+    }
+
+    const solicitacao = await prisma.solicitacao.findUnique({
+      where: { id: arquivo.solicitacao_id },
+    });
+
+    if (!solicitacao) {
+      return res.status(404).json({ erro: "Solicitação não encontrada." });
+    }
+
+    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a baixar este arquivo.",
+      });
+    }
+
+    const fullPath = path.join(uploadDir, arquivo.path);
+
+    if (!fs.existsSync(fullPath)) {
+      return res
+        .status(410)
+        .json({ erro: "Arquivo não está mais disponível." });
+    }
+
+    res.download(fullPath, arquivo.original_name);
+  } catch (err) {
+    console.error("Erro em GET /arquivos/:id/download:", err);
+    res.status(500).json({ erro: "Erro ao fazer download do arquivo." });
+  }
+});
+
+// =========================
+// 🔰 REMOVER ARQUIVO
+// =========================
+app.delete("/arquivos/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const arquivo = await prisma.solicitacaoArquivo.findUnique({
+      where: { id: Number(id) },
+    });
+
+    if (!arquivo) {
+      return res.status(404).json({ erro: "Arquivo não encontrado." });
+    }
+
+    const solicitacao = await prisma.solicitacao.findUnique({
+      where: { id: arquivo.solicitacao_id },
+    });
+
+    if (!solicitacao) {
+      return res.status(404).json({ erro: "Solicitação não encontrada." });
+    }
+
+    if (req.user.tipo !== "admin" && solicitacao.usuario_id !== req.user.id) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a remover este arquivo.",
+      });
+    }
+
+    const fullPath = path.join(uploadDir, arquivo.path);
+
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
+
+    await prisma.solicitacaoArquivo.delete({
+      where: { id: Number(id) },
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro em DELETE /arquivos/:id:", err);
+    res.status(500).json({ erro: "Erro ao remover arquivo." });
+  }
+});
+
+// =========================
+// 🔰 HISTÓRICO DE STATUS (por solicitação / global)
 // =========================
 app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
   try {
@@ -1060,14 +1343,14 @@ app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
     }
 
     const Historico = getHistoricoModel();
-    if (!Historico) {
-      return res.json([]);
-    }
+if (!Historico) {
+  return res.json([]);
+}
 
-    const lista = await Historico.findMany({
-      where: { solicitacao_id: solicitacaoId },
-      orderBy: { data: "desc" },
-    });
+const lista = await Historico.findMany({
+  where: { solicitacao_id: solicitacaoId },
+  orderBy: { data: "desc" },
+});
 
     res.json(lista);
   } catch (err) {
@@ -1077,42 +1360,21 @@ app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
 });
 
 // =========================
-// 🔰 SOLICITAÇÕES — HISTÓRICO GLOBAL
-// =========================
-app.get("/historico", authMiddleware, adminOnly, async (req, res) => {
-  try {
-    const Historico = getHistoricoModel();
-    if (!Historico) {
-      return res.json([]);
-    }
-
-    const lista = await Historico.findMany({
-      orderBy: { data: "desc" },
-    });
-
-    res.json(lista);
-  } catch (err) {
-    console.error("Erro em GET /historico:", err);
-    res.status(500).json({ erro: "Erro ao buscar histórico global." });
-  }
-});
-
-// =========================
-// 🔰 ALTERAÇÃO DE STATUS ESPECÍFICA (KANBAN)
+// 🔰 ATUALIZAR STATUS DA SOLICITAÇÃO (com histórico) — ADMIN
 // =========================
 app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
     const { status, origem, obs } = req.body;
 
-    // Se o status for "Aguardando documento", obs é obrigatória
-    if (status === "Aguardando documento") {
-      if (!obs || String(obs).trim() === "") {
-        return res.status(400).json({
-          erro: "Campo 'obs' é obrigatório quando o status é 'Aguardando documento'.",
-        });
-      }
-    }
+// Se o status for "Aguardando documento", obs é obrigatória
+if (status === "Aguardando documento") {
+  if (!obs || String(obs).trim() === "") {
+    return res.status(400).json({
+      erro: "Campo 'obs' é obrigatório quando o status é 'Aguardando documento'.",
+    });
+  }
+}
 
     const statusList = await prisma.status.findMany({
       where: { ativo: true },
@@ -1127,33 +1389,38 @@ app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) 
       });
     }
 
-    const atualizado = await prisma.solicitacao.update({
-      where: { id: Number(id) },
-      data: {
-        status,
-        data_ultima_mudanca: new Date(),
-      },
-    });
+      const atualizado = await prisma.solicitacao.update({
+  where: { id: Number(id) },
+  data: {
+    status,
+    data_ultima_mudanca: new Date(),
+  },
+});
 
-    const Historico = getHistoricoModel();
-    if (Historico) {
-      const dataHistorico =
-        normalizarData(req.body.data) ||
-        atualizado.data_ultima_mudanca ||
-        new Date();
+const Historico = getHistoricoModel();
+if (Historico) {
+  // ✅ DATA DO MOVIMENTO: mesma lógica, data_ultima_mudanca ou agora
+    const dataHistorico =
+    normalizarData(req.body.data) ||               // se o front mandar "data"
+    normalizarData(req.body.data_nf) ||            // ou "data_nf"
+    normalizarData(req.body.data_solicitacao) ||   // ou "data_solicitacao"
+    atualizado.data_nf ||                          // senão, usa a data da solicitação
+    atualizado.data_solicitacao ||
+    new Date();                                    // fallback absoluto
 
-      await Historico.create({
-        data: {
-          solicitacao_id: Number(id),
-          status,
-          data: dataHistorico,
-          origem: origem || "Sistema",
-          obs: obs || null,
-        },
-      });
-    }
+  await Historico.create({
+    data: {
+      solicitacao_id: Number(id),
+      status,
+      data: dataHistorico,
+      origem: origem || "Sistema",
+      obs: obs || null,
+    },
+  });
+}
 
-    res.json({ ok: true, atualizado });
+res.json({ ok: true, atualizado });
+
   } catch (err) {
     console.error("Erro em PUT /solicitacoes/:id/status:", err);
     res.status(500).json({ erro: "Erro ao atualizar status." });
@@ -1161,105 +1428,185 @@ app.put("/solicitacoes/:id/status", authMiddleware, adminOnly, async (req, res) 
 });
 
 // =========================
+// 🔰 KANBAN
+// =========================
+app.get("/kanban", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const statusList = await prisma.status.findMany({
+      where: { ativo: true },
+      orderBy: { id: "asc" },
+    });
+
+    const solicitacoes = await prisma.solicitacao.findMany({
+      orderBy: { criado_em: "desc" },
+      include: {
+        arquivos: true,
+        usuario: true,
+      },
+    });
+
+    const grupos = {};
+    statusList.forEach((s) => {
+      grupos[s.nome] = [];
+    });
+
+    solicitacoes
+      .map(mapSolicitacaoComSolicitante)
+      .forEach((s) => {
+        if (!grupos[s.status]) grupos[s.status] = [];
+        grupos[s.status].push(s);
+      });
+
+    res.json(grupos);
+  } catch (err) {
+    console.error("Erro em GET /kanban:", err);
+    res.status(500).json({ erro: "Erro ao buscar dados do Kanban." });
+  }
+});
+
+// =========================
 // 🔰 DASHBOARD
 // =========================
-app.get("/dashboard", authMiddleware, async (req, res) => {
+app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
   try {
-    let where = {};
-    if (req.user.tipo !== "admin") {
-      where.usuario_id = req.user.id;
-    }
+    const totalSolicitacoes = await prisma.solicitacao.count();
 
-    const totalSolicitacoes = await prisma.solicitacao.count({ where });
-
-    const agrupadoStatus = await prisma.solicitacao.groupBy({
+    const totaisPorStatusRaw = await prisma.solicitacao.groupBy({
       by: ["status"],
-      where,
-      _count: { _all: true },
+      _count: { status: true },
     });
 
-    const totalPorStatus = {};
-    for (const item of agrupadoStatus) {
-      totalPorStatus[item.status] = item._count._all;
-    }
-
-    const somaValores = await prisma.solicitacao.aggregate({
-      where,
-      _sum: { valor_nf: true },
+    const totaisPorStatus = {};
+    totaisPorStatusRaw.forEach((item) => {
+      totaisPorStatus[item.status] = item._count.status;
     });
+
+    const ultimasRaw = await prisma.solicitacao.findMany({
+      orderBy: { criado_em: "desc" },
+      take: 10,
+      include: {
+        arquivos: true,
+        usuario: true,
+      },
+    });
+
+    const ultimas = ultimasRaw.map(mapSolicitacaoComSolicitante);
 
     res.json({
       totalSolicitacoes,
-      totalPorStatus,
-      valorTotal: somaValores._sum.valor_nf || 0,
+      totaisPorStatus,
+      ultimas,
     });
   } catch (err) {
     console.error("Erro em GET /dashboard:", err);
-    res.status(500).json({ erro: "Erro ao buscar dados do dashboard." });
+    res.status(500).json({ erro: "Erro ao montar dashboard." });
   }
 });
 
 // =========================
-// 🔰 RELATÓRIOS — IMPORTAÇÃO IRPF
+// 🔰 HISTÓRICO GLOBAL
 // =========================
-app.get("/relatorios/irpf", authMiddleware, async (req, res) => {
+app.get("/historico", authMiddleware, adminOnly, async (req, res) => {
   try {
-    let where = {};
-    if (req.user.tipo !== "admin") {
-      where.usuario_id = req.user.id;
-    }
+    const Historico = getHistoricoModel();
+if (!Historico) {
+  return res.json([]);
+}
 
-    const solicitacoes = await prisma.solicitacao.findMany({
-      where,
-      orderBy: { data_nf: "asc" },
+const lista = await Historico.findMany({
+  orderBy: { data: "desc" },
+});
+
+    res.json(lista);
+  } catch (err) {
+    console.error("Erro em GET /historico:", err);
+    res.status(500).json({ erro: "Erro ao buscar histórico global." });
+  }
+});
+
+// =========================
+// 🔰 RELATÓRIO IRPF
+// =========================
+app.get("/relatorios/irpf", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const dados = await prisma.solicitacao.findMany({
+      orderBy: { criado_em: "desc" },
+      include: {
+        arquivos: true,
+      },
     });
 
-    res.json(solicitacoes);
+    const resultado = dados.map((s) => ({
+      id: s.id,
+      solicitante_id: s.usuario_id,
+      beneficiario_nome: s.beneficiario_nome,
+      beneficiario_doc: s.beneficiario_doc,
+      numero_nf: s.numero_nf,
+      data_nf: s.data_nf,
+      valor_nf: s.valor_nf,
+      emitente_nome: s.emitente_nome,
+      emitente_doc: s.emitente_doc,
+      status: s.status,
+      data_pagamento: s.data_pagamento,
+      valor_reembolso: s.valor_reembolso,
+      criado_em: s.criado_em,
+    }));
+
+    res.json(resultado);
   } catch (err) {
     console.error("Erro em GET /relatorios/irpf:", err);
-    res.status(500).json({ erro: "Erro ao gerar relatório IRPF." });
+    res.status(500).json({ erro: "Erro ao gerar relatório." });
   }
 });
 
 // =========================
-// 🔰 CONFIGURAÇÕES — GERA ESTRUTURA DO BANCO
+// 🔰 ESTRUTURA DO BANCO (TXT)
 // =========================
 app.get("/config/estrutura-banco", authMiddleware, adminOnly, async (req, res) => {
   try {
     const result = await prisma.$queryRawUnsafe(`
-      SELECT table_name, column_name, data_type
+      SELECT table_name, column_name, data_type, is_nullable
       FROM information_schema.columns
       WHERE table_schema = 'public'
       ORDER BY table_name, ordinal_position;
     `);
 
-    let texto = "";
-    let tabelaAtual = "";
+    let txt = "Controle de Reembolso – Estrutura do Banco de Dados\n";
+    txt += `Gerado em: ${new Date().toLocaleString()}\n\n`;
+
+    let tabelaAtual = null;
+
     for (const row of result) {
-      if (row.table_name !== tabelaAtual) {
+      if (tabelaAtual !== row.table_name) {
         tabelaAtual = row.table_name;
-        texto += `\nTabela: ${tabelaAtual}\n`;
+        txt += `TABELA ${tabelaAtual}\n`;
       }
-      texto += `  - ${row.column_name}: ${row.data_type}\n`;
+      txt += `- ${row.column_name} ${row.data_type} ${
+        row.is_nullable === "NO" ? "NOT NULL" : ""
+      }\n`;
     }
 
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.send(texto);
+    const filePath = path.join(__dirname, "estrutura_banco.txt");
+    fs.writeFileSync(filePath, txt);
+
+    res.download(filePath, "estrutura_banco.txt");
   } catch (err) {
-    console.error("Erro em GET /config/estrutura-banco:", err);
-    res.status(500).json({ erro: "Não foi possível gerar a estrutura do banco." });
+    console.error("Erro em /config/estrutura-banco:", err);
+    res.status(500).json({ erro: "Erro ao gerar estrutura do banco." });
   }
 });
 
 // =========================
-// 🔰 STATIC (UPLOADS)
+// 🔰 MIDDLEWARE DE ERRO GLOBAL
 // =========================
-app.use("/uploads", express.static(uploadDir));
+app.use((err, req, res, next) => {
+  console.error("Erro interno não tratado:", err);
+  res.status(500).json({ error: "Erro interno do servidor" });
+});
 
 // =========================
-// 🔰 START SERVER
+// 🔰 INICIAR SERVIDOR
 // =========================
-const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`API Reembolso rodando na porta ${PORT}`);
+  console.log(`🚀 API Reembolso rodando na porta ${PORT}`);
 });
