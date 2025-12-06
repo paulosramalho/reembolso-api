@@ -562,12 +562,22 @@ async function attachHistoricoToSolicitacoes(solicitacoesRaw) {
 // =========================
 app.post("/usuarios", authMiddleware, adminOnly, async (req, res) => {
   try {
-    const { nome, email, senha, tipo, ativo, cpfcnpj, telefone } = req.body;
+    const {
+      nome,
+      email,
+      senha,
+      tipo,
+      ativo,
+      cpfcnpj,
+      cpfCnpj,
+      telefone,
+    } = req.body;
 
-    if (!nome || !email || !senha) {
+    // ✅ Agora só exigimos nome e e-mail
+    if (!nome || !email) {
       return res
         .status(400)
-        .json({ erro: "Nome, e-mail e senha são obrigatórios." });
+        .json({ erro: "Nome e e-mail são obrigatórios." });
     }
 
     const existente = await prisma.usuario.findFirst({ where: { email } });
@@ -578,7 +588,19 @@ app.post("/usuarios", authMiddleware, adminOnly, async (req, res) => {
         .json({ erro: "Já existe um usuário cadastrado com esse e-mail." });
     }
 
-    const hash = await bcrypt.hash(senha, 10);
+    // ✅ Se não vier senha, geramos uma senha temporária
+    let senhaFinal =
+      (senha && String(senha).trim()) ||
+      Math.random().toString(36).slice(-8); // ex: "a9f3x2k1"
+
+    // (opcional) logar no servidor para consulta, se quiser:
+    console.log(
+      `🔐 Senha temporária gerada para o usuário ${email}: ${senhaFinal}`
+    );
+
+    const hash = await bcrypt.hash(senhaFinal, 10);
+
+    const cpfValue = cpfcnpj || cpfCnpj || null;
 
     const novo = await prisma.usuario.create({
       data: {
@@ -587,9 +609,9 @@ app.post("/usuarios", authMiddleware, adminOnly, async (req, res) => {
         senha_hash: hash,
         tipo: tipo || "user",
         ativo: ativo !== undefined ? !!ativo : true,
-        cpfcnpj: cpfcnpj || null,
+        cpfcnpj: cpfValue,
         telefone: telefone || null,
-        primeiro_acesso: true,
+        primeiro_acesso: true, // usuário pode ser obrigado a trocar depois, se você quiser tratar no front
       },
     });
 
