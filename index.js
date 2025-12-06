@@ -1101,21 +1101,35 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       dataAtualizar[campo] = valor;
     }
 
-    if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
-  // 📌 Tenta pegar a data da movimentação do body (statusDate, etc.)
-  // Se não vier nada, usa:
-  //   1) data_ultima_mudanca existente
-  //   2) data_solicitacao
-  //   3) por último, data corrente
-  dataMovimentacao =
-    getDataMovimentacaoFromBody(dados) ||
-    existente.data_ultima_mudanca ||
-    existente.data_solicitacao ||
-    new Date();
-
-  dataAtualizar.data_ultima_mudanca = dataMovimentacao;
-
+ if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
   const novoStatus = dataAtualizar.status;
+
+  if (novoStatus === "Pago") {
+    // 🔹 Para "Pago", a data da movimentação deve ser a data de pagamento
+    const dtPagamento =
+      normalizarData(dados.dataPagamento ?? dados.data_pagamento) ||
+      existente.data_pagamento ||
+      getDataMovimentacaoFromBody(dados) ||
+      existente.data_ultima_mudanca ||
+      existente.data_solicitacao ||
+      new Date();
+
+    dataMovimentacao = dtPagamento;
+
+    // Atualiza também a data de pagamento da solicitação
+    dataAtualizar.data_pagamento = dtPagamento;
+    dataAtualizar.data_ultima_mudanca = dtPagamento;
+  } else {
+    // 🔹 Demais status seguem a regra normal (statusDate, data, etc.)
+    dataMovimentacao =
+      getDataMovimentacaoFromBody(dados) ||
+      existente.data_ultima_mudanca ||
+      existente.data_solicitacao ||
+      new Date();
+
+    dataAtualizar.data_ultima_mudanca = dataMovimentacao;
+  }
+
   if (novoStatus && novoStatus !== statusAntes) {
     statusMudou = true;
   }
