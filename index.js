@@ -1029,6 +1029,19 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       where: { id: solicitacaoId },
     });
 
+    console.log("=== DEBUG EDITAR SOLICITACAO ===");
+    console.log("ID:", solicitacaoId);
+    console.log("Body recebido (req.body):", JSON.stringify(dados, null, 2));
+    console.log("Solicitação existente:", {
+      id: existente?.id,
+      status: existente?.status,
+      data_solicitacao: existente?.data_solicitacao,
+      data_ultima_mudanca: existente?.data_ultima_mudanca,
+      data_pagamento: existente?.data_pagamento,
+    });
+
+
+
     if (!existente) {
       return res.status(404).json({ erro: "Solicitação não encontrada." });
     }
@@ -1094,6 +1107,16 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       }
     }
 
+
+    console.log("DEBUG EDITAR - dataAtualizar:", {
+      dataAtualizar,
+      dataMovimentacao,
+      statusAntes,
+      statusDepois: dataAtualizar.status ?? statusAntes,
+      statusMudou,
+    });
+
+
     if (Object.keys(dataAtualizar).length === 0) {
       return res.json(existente);
     }
@@ -1111,6 +1134,16 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
           const obsHistorico = getObsFromBody(dados);
           const dataHistorico = dataMovimentacao || new Date();
 
+
+          console.log("DEBUG EDITAR - HISTORICO A SER GRAVADO:", {
+            solicitacao_id: solicitacaoId,
+            status: atualizado.status,
+            dataHistorico,
+            origem: "Edição",
+            obsHistorico,
+          });
+
+
           await Historico.create({
             data: {
               solicitacao_id: solicitacaoId,
@@ -1120,6 +1153,7 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
               obs: obsHistorico,
             },
           });
+
         } catch (errHist) {
           console.error(
             "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
@@ -1481,6 +1515,13 @@ app.put(
       const { id } = req.params;
       const { status, origem } = req.body;
 
+
+      console.log("=== DEBUG KANBAN /status ===");
+      console.log("ID:", id);
+      console.log("Body recebido (req.body):", JSON.stringify(req.body, null, 2));
+      console.log("Status solicitado:", status, "Origem recebida:", origem);
+
+
             // 📌 Observação / motivo (Kanban) — aqui NÃO usamos "descricao" para evitar herdar "Consulta"
       const textoObsRaw =
         req.body.obs ??
@@ -1494,6 +1535,13 @@ app.put(
         textoObsRaw !== null && textoObsRaw !== undefined
           ? String(textoObsRaw).trim()
           : "";
+
+
+      console.log("DEBUG KANBAN - OBS:", {
+        textoObsRaw,
+        textoObs,
+      });
+
 
 
       // 📌 Motivo obrigatório para "Aguardando documento" e "Rejeitado"
@@ -1524,6 +1572,19 @@ app.put(
       const dataMovimentacao =
         getDataMovimentacaoFromBody(req.body) || new Date();
 
+
+      console.log("DEBUG KANBAN - DATA MOVIMENTACAO:", {
+        recebido: {
+          data_movimentacao: req.body.data_movimentacao,
+          dataMovimentacao: req.body.dataMovimentacao,
+          data_ultima_mudanca: req.body.data_ultima_mudanca,
+          dataUltimaMudanca: req.body.dataUltimaMudanca,
+          data: req.body.data,
+        },
+        dataMovimentacao,
+      });
+
+
       const atualizado = await prisma.solicitacao.update({
         where: { id: Number(id) },
         data: {
@@ -1531,6 +1592,16 @@ app.put(
           data_ultima_mudanca: dataMovimentacao,
         },
       });
+
+
+      console.log("DEBUG KANBAN - HISTORICO A SER GRAVADO:", {
+        solicitacao_id: Number(id),
+        status,
+        data: dataMovimentacao,
+        origem: origem || "Sistema",
+        obs: textoObs || null,
+      });
+
 
       const Historico = getHistoricoModel();
       if (Historico) {
