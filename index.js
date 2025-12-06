@@ -625,7 +625,16 @@ app.post("/usuarios", authMiddleware, adminOnly, async (req, res) => {
 app.put("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nome, email, senha, tipo, ativo, cpfcnpj, telefone } = req.body;
+    const {
+      nome,
+      email,
+      senha,
+      tipo,
+      ativo,
+      cpfcnpj,
+      cpfCnpj,
+      telefone,
+    } = req.body;
 
     const data = {};
 
@@ -633,7 +642,12 @@ app.put("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
     if (email !== undefined) data.email = String(email).trim();
     if (tipo !== undefined) data.tipo = tipo;
     if (ativo !== undefined) data.ativo = !!ativo;
-    if (cpfcnpj !== undefined) data.cpfcnpj = cpfcnpj || null;
+
+    const cpfValue = cpfcnpj ?? cpfCnpj;
+    if (cpfValue !== undefined) {
+      data.cpfcnpj = cpfValue || null;
+    }
+
     if (telefone !== undefined) data.telefone = telefone || null;
 
     if (senha) {
@@ -649,6 +663,52 @@ app.put("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
     res.json(atualizado);
   } catch (err) {
     console.error("Erro em PUT /usuarios/:id:", err);
+    res.status(500).json({ erro: "Erro ao salvar usuário." });
+  }
+});
+
+// PATCH /usuarios/:id — alias do PUT para compatibilidade com o front
+app.patch("/usuarios/:id", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      nome,
+      email,
+      senha,
+      tipo,
+      ativo,
+      cpfcnpj,
+      cpfCnpj,
+      telefone,
+    } = req.body;
+
+    const data = {};
+
+    if (nome !== undefined) data.nome = String(nome).trim();
+    if (email !== undefined) data.email = String(email).trim();
+    if (tipo !== undefined) data.tipo = tipo;
+    if (ativo !== undefined) data.ativo = !!ativo;
+
+    const cpfValue = cpfcnpj ?? cpfCnpj;
+    if (cpfValue !== undefined) {
+      data.cpfcnpj = cpfValue || null;
+    }
+
+    if (telefone !== undefined) data.telefone = telefone || null;
+
+    if (senha) {
+      data.senha_hash = await bcrypt.hash(senha, 10);
+      data.primeiro_acesso = false;
+    }
+
+    const atualizado = await prisma.usuario.update({
+      where: { id: Number(id) },
+      data,
+    });
+
+    res.json(atualizado);
+  } catch (err) {
+    console.error("Erro em PATCH /usuarios/:id:", err);
     res.status(500).json({ erro: "Erro ao salvar usuário." });
   }
 });
