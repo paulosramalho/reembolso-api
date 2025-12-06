@@ -164,7 +164,7 @@ app.get("/", (req, res) => {
 });
 
 // =========================
- // 🔰 AUTH — LOGIN
+// 🔰 AUTH — LOGIN
 // =========================
 app.post("/auth/login", async (req, res) => {
   try {
@@ -502,6 +502,61 @@ function mapSolicitacaoComSolicitante(s) {
   };
 }
 
+/**
+ * Anexa o histórico de status (tabela solicitacao_status_history)
+ * a cada solicitação, preenchendo o campo `statusHistory`.
+ */
+async function attachHistoricoToSolicitacoes(solicitacoesRaw) {
+  const Historico = getHistoricoModel();
+
+  if (!Array.isArray(solicitacoesRaw) || solicitacoesRaw.length === 0) {
+    return [];
+  }
+
+  // Se não tiver model de histórico, devolve só com o mapeamento padrão
+  if (!Historico) {
+    return solicitacoesRaw.map((s) => ({
+      ...mapSolicitacaoComSolicitante(s),
+      statusHistory: [],
+    }));
+  }
+
+  const ids = solicitacoesRaw.map((s) => s.id);
+  const historicos = await Historico.findMany({
+    where: {
+      solicitacao_id: { in: ids },
+    },
+    orderBy: { data: "asc" }, // cronológico (mais antigo → mais recente)
+  });
+
+  const porSolic = {};
+  for (const h of historicos) {
+    if (!porSolic[h.solicitacao_id]) porSolic[h.solicitacao_id] = [];
+    porSolic[h.solicitacao_id].push(h);
+  }
+
+  return solicitacoesRaw.map((s) => {
+    const base = mapSolicitacaoComSolicitante(s);
+    const histRows = porSolic[s.id] || [];
+
+    const statusHistory = histRows.map((h) => ({
+      id: h.id,
+      status: h.status,
+      date:
+        h.data instanceof Date
+          ? h.data.toISOString().slice(0, 10)
+          : h.data,
+      origem: h.origem,
+      obs: h.obs,
+    }));
+
+    return {
+      ...base,
+      statusHistory,
+    };
+  });
+}
+
 // =========================
 // 🔰 USUÁRIOS — CRUD (Configurações)
 // =========================
@@ -743,7 +798,7 @@ app.put("/status/:id", authMiddleware, adminOnly, async (req, res) => {
 });
 
 // =========================
-// 🔰 SOLICITAÇÕES — LISTAR
+// 🔰 SOLICITAÇÕES — LISTAR POR USUÁRIO
 // =========================
 app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
   try {
@@ -763,7 +818,7 @@ app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
       },
     });
 
-    const resposta = dados.map(mapSolicitacaoComSolicitante);
+    const resposta = await attachHistoricoToSolicitacoes(dados);
 
     res.json(resposta);
   } catch (err) {
@@ -772,6 +827,9 @@ app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
   }
 });
 
+// =========================
+// 🔰 SOLICITAÇÕES — LISTAR TODAS (ADMIN)
+// =========================
 app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
   try {
     const registros = await prisma.solicitacao.findMany({
@@ -782,12 +840,51 @@ app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
       },
     });
 
-    const resposta = registros.map(mapSolicitacaoComSolicitante);
+    const resposta = await attachHistoricoToSolicitacoes(registros);
 
     res.json(resposta);
   } catch (err) {
     console.error("Erro em GET /solicitacoes:", err);
     res.status(500).json({ erro: "Erro ao listar solicitações." });
+  }
+});
+
+// =========================
+// 🔰 SOLICITAÇÃO — DETALHE (com histórico)
+// =========================
+app.get("/solicitacoes/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const solicitacaoId = Number(id);
+
+    const existente = await prisma.solicitacao.findUnique({
+      where: { id: solicitacaoId },
+      include: {
+        arquivos: true,
+        usuario: true,
+      },
+    });
+
+    if (!existente) {
+      return res.status(404).json({ erro: "Solicitação não encontrada." });
+    }
+
+    // Regra de acesso: admin pode tudo; usuário só a própria
+    if (
+      req.user.tipo !== "admin" &&
+      existente.usuario_id !== req.user.id
+    ) {
+      return res.status(403).json({
+        erro: "Usuário não autorizado a visualizar esta solicitação.",
+      });
+    }
+
+    const [comHistorico] = await attachHistoricoToSolicitacoes([existente]);
+
+    res.json(comHistorico);
+  } catch (err) {
+    console.error("Erro em GET /solicitacoes/:id:", err);
+    res.status(500).json({ erro: "Erro ao buscar solicitação." });
   }
 });
 
@@ -1003,7 +1100,7 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
             status: nova.status || dataCriar.status || "Em análise",
             data: dataHistorico,
             origem: "Criação",
-                obs: getObsFromBody(dados, { permitirDescricao: true }),
+            obs: getObsFromBody(dados, { permitirDescricao: true }),
           },
         });
       } catch (errHist) {
@@ -1044,8 +1141,6 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       data_ultima_mudanca: existente?.data_ultima_mudanca,
       data_pagamento: existente?.data_pagamento,
     });
-
-
 
     if (!existente) {
       return res.status(404).json({ erro: "Solicitação não encontrada." });
@@ -1101,40 +1196,39 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       dataAtualizar[campo] = valor;
     }
 
- if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
-  const novoStatus = dataAtualizar.status;
+    if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
+      const novoStatus = dataAtualizar.status;
 
-  if (novoStatus === "Pago") {
-    // 🔹 Para "Pago", a data da movimentação deve ser a data de pagamento
-    const dtPagamento =
-      normalizarData(dados.dataPagamento ?? dados.data_pagamento) ||
-      existente.data_pagamento ||
-      getDataMovimentacaoFromBody(dados) ||
-      existente.data_ultima_mudanca ||
-      existente.data_solicitacao ||
-      new Date();
+      if (novoStatus === "Pago") {
+        // 🔹 Para "Pago", a data da movimentação deve ser a data de pagamento
+        const dtPagamento =
+          normalizarData(dados.dataPagamento ?? dados.data_pagamento) ||
+          existente.data_pagamento ||
+          getDataMovimentacaoFromBody(dados) ||
+          existente.data_ultima_mudanca ||
+          existente.data_solicitacao ||
+          new Date();
 
-    dataMovimentacao = dtPagamento;
+        dataMovimentacao = dtPagamento;
 
-    // Atualiza também a data de pagamento da solicitação
-    dataAtualizar.data_pagamento = dtPagamento;
-    dataAtualizar.data_ultima_mudanca = dtPagamento;
-  } else {
-    // 🔹 Demais status seguem a regra normal (statusDate, data, etc.)
-    dataMovimentacao =
-      getDataMovimentacaoFromBody(dados) ||
-      existente.data_ultima_mudanca ||
-      existente.data_solicitacao ||
-      new Date();
+        // Atualiza também a data de pagamento da solicitação
+        dataAtualizar.data_pagamento = dtPagamento;
+        dataAtualizar.data_ultima_mudanca = dtPagamento;
+      } else {
+        // 🔹 Demais status seguem a regra normal (statusDate, data, etc.)
+        dataMovimentacao =
+          getDataMovimentacaoFromBody(dados) ||
+          existente.data_ultima_mudanca ||
+          existente.data_solicitacao ||
+          new Date();
 
-    dataAtualizar.data_ultima_mudanca = dataMovimentacao;
-  }
+        dataAtualizar.data_ultima_mudanca = dataMovimentacao;
+      }
 
-  if (novoStatus && novoStatus !== statusAntes) {
-    statusMudou = true;
-  }
-}
-
+      if (novoStatus && novoStatus !== statusAntes) {
+        statusMudou = true;
+      }
+    }
 
     console.log("DEBUG EDITAR - dataAtualizar:", {
       dataAtualizar,
@@ -1143,7 +1237,6 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
       statusDepois: dataAtualizar.status ?? statusAntes,
       statusMudou,
     });
-
 
     if (Object.keys(dataAtualizar).length === 0) {
       return res.json(existente);
@@ -1162,7 +1255,6 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
           const obsHistorico = getObsFromBody(dados);
           const dataHistorico = dataMovimentacao || new Date();
 
-
           console.log("DEBUG EDITAR - HISTORICO A SER GRAVADO:", {
             solicitacao_id: solicitacaoId,
             status: atualizado.status,
@@ -1170,7 +1262,6 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
             origem: "Edição",
             obsHistorico,
           });
-
 
           await Historico.create({
             data: {
@@ -1181,7 +1272,6 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
               obs: obsHistorico,
             },
           });
-
         } catch (errHist) {
           console.error(
             "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
@@ -1521,7 +1611,7 @@ app.get("/solicitacoes/:id/historico", authMiddleware, async (req, res) => {
 
     const lista = await Historico.findMany({
       where: { solicitacao_id: solicitacaoId },
-      orderBy: { data: "desc" },
+      orderBy: { data: "asc" },
     });
 
     res.json(lista);
@@ -1543,14 +1633,12 @@ app.put(
       const { id } = req.params;
       const { status, origem } = req.body;
 
-
       console.log("=== DEBUG KANBAN /status ===");
       console.log("ID:", id);
       console.log("Body recebido (req.body):", JSON.stringify(req.body, null, 2));
       console.log("Status solicitado:", status, "Origem recebida:", origem);
 
-
-            // 📌 Observação / motivo (Kanban) — aqui NÃO usamos "descricao" para evitar herdar "Consulta"
+      // 📌 Observação / motivo (Kanban) — aqui NÃO usamos "descricao" para evitar herdar "Consulta"
       const textoObsRaw =
         req.body.obs ??
         req.body.observacao ??
@@ -1564,13 +1652,10 @@ app.put(
           ? String(textoObsRaw).trim()
           : "";
 
-
       console.log("DEBUG KANBAN - OBS:", {
         textoObsRaw,
         textoObs,
       });
-
-
 
       // 📌 Motivo obrigatório para "Aguardando documento" e "Rejeitado"
       const motivoObrigatorio =
@@ -1600,7 +1685,6 @@ app.put(
       const dataMovimentacao =
         getDataMovimentacaoFromBody(req.body) || new Date();
 
-
       console.log("DEBUG KANBAN - DATA MOVIMENTACAO:", {
         recebido: {
           data_movimentacao: req.body.data_movimentacao,
@@ -1608,10 +1692,10 @@ app.put(
           data_ultima_mudanca: req.body.data_ultima_mudanca,
           dataUltimaMudanca: req.body.dataUltimaMudanca,
           data: req.body.data,
+          statusDate: req.body.statusDate,
         },
         dataMovimentacao,
       });
-
 
       const atualizado = await prisma.solicitacao.update({
         where: { id: Number(id) },
@@ -1621,7 +1705,6 @@ app.put(
         },
       });
 
-
       console.log("DEBUG KANBAN - HISTORICO A SER GRAVADO:", {
         solicitacao_id: Number(id),
         status,
@@ -1629,7 +1712,6 @@ app.put(
         origem: origem || "Sistema",
         obs: textoObs || null,
       });
-
 
       const Historico = getHistoricoModel();
       if (Historico) {
@@ -1662,7 +1744,7 @@ app.get("/kanban", authMiddleware, adminOnly, async (req, res) => {
       orderBy: { id: "asc" },
     });
 
-    const solicitacoes = await prisma.solicitacao.findMany({
+    const solicitacoesRaw = await prisma.solicitacao.findMany({
       orderBy: { criado_em: "desc" },
       include: {
         arquivos: true,
@@ -1670,17 +1752,17 @@ app.get("/kanban", authMiddleware, adminOnly, async (req, res) => {
       },
     });
 
+    const solicitacoes = await attachHistoricoToSolicitacoes(solicitacoesRaw);
+
     const grupos = {};
     statusList.forEach((s) => {
       grupos[s.nome] = [];
     });
 
-    solicitacoes
-      .map(mapSolicitacaoComSolicitante)
-      .forEach((s) => {
-        if (!grupos[s.status]) grupos[s.status] = [];
-        grupos[s.status].push(s);
-      });
+    solicitacoes.forEach((s) => {
+      if (!grupos[s.status]) grupos[s.status] = [];
+      grupos[s.status].push(s);
+    });
 
     res.json(grupos);
   } catch (err) {
@@ -1715,7 +1797,7 @@ app.get("/dashboard", authMiddleware, adminOnly, async (req, res) => {
       },
     });
 
-    const ultimas = ultimasRaw.map(mapSolicitacaoComSolicitante);
+    const ultimas = await attachHistoricoToSolicitacoes(ultimasRaw);
 
     res.json({
       totalSolicitacoes,
