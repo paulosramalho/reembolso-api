@@ -482,6 +482,72 @@ app.post("/auth/reset-senha", async (req, res) => {
 });
 
 // =========================
+// 🔰 AUTH — ALTERAR SENHA (Usuário logado / Meu Perfil)
+// =========================
+app.post("/auth/alterar-senha", authMiddleware, async (req, res) => {
+  try {
+    const { senhaAtual, novaSenha } = req.body;
+
+    // Validação básica
+    if (!senhaAtual || !novaSenha) {
+      return res.status(400).json({
+        erro: "Informe a senha atual e a nova senha.",
+      });
+    }
+
+    if (String(novaSenha).trim().length < 4) {
+      return res.status(400).json({
+        erro: "Use uma nova senha com pelo menos 4 caracteres.",
+      });
+    }
+
+    // Busca o usuário logado, com base no token (authMiddleware já preenche req.user.id)
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: Number(req.user.id) },
+    });
+
+    if (!usuario) {
+      return res.status(404).json({
+        erro: "Usuário não encontrado.",
+      });
+    }
+
+    // Confere se a senha atual enviada confere com o hash salvo
+    const senhaConfere = await bcrypt.compare(
+      String(senhaAtual),
+      usuario.senha_hash
+    );
+
+    if (!senhaConfere) {
+      return res.status(400).json({
+        erro: "Senha atual incorreta.",
+      });
+    }
+
+    // Gera novo hash e salva
+    const novoHash = await bcrypt.hash(String(novaSenha).trim(), 10);
+
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        senha_hash: novoHash,
+        primeiro_acesso: false,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      mensagem: "Senha alterada com sucesso.",
+    });
+  } catch (err) {
+    console.error("Erro em /auth/alterar-senha:", err);
+    return res.status(500).json({
+      erro: "Erro ao alterar a senha.",
+    });
+  }
+});
+
+// =========================
 // 🔰 USUÁRIOS
 // =========================
 app.get("/usuarios/:id", async (req, res) => {
