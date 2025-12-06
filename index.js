@@ -1294,7 +1294,7 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
 
         if (jaExiste) {
           return res.status(400).json({
-            erro: "Já existe uma solicitação cadastrada com essa nota fiscal.",
+            erro: "Já existe uma solicitação cadastrada com essa Nota Fiscal / Receita Saúde.",
           });
         }
 
@@ -1468,7 +1468,7 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
 
         if (jaExiste) {
           return res.status(400).json({
-            erro: "Já existe uma solicitação cadastrada com essa nota fiscal.",
+            erro: "Já existe uma solicitação cadastrada com essa Nota Fiscal / Receita Saúde.",
           });
         }
 
