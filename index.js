@@ -863,11 +863,6 @@ function normalizarData(valor) {
   return d;
 }
 
-  const d = new Date(s);
-  if (isNaN(d.getTime())) return null;
-  return d;
-}
-
 /**
  * Tenta descobrir a "data da movimentação" vinda do front.
  * Aceita vários nomes de campo, em ordem de prioridade.
