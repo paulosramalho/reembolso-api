@@ -342,10 +342,13 @@ app.post("/auth/esqueci-senha", async (req, res) => {
       },
     });
 
-    const base = (APP_BASE_URL || "").replace(/\/$/, "");
-    const resetLink = `${
-      base || "https://controle-de-reembolso.vercel.app"
-    }/resetar-senha/${token}`;
+    const base = (APP_BASE_URL || "https://controle-de-reembolso.vercel.app")
+  .replace(/\/$/, "");
+
+// Link compatível com o Login.jsx (usa querystring)
+const resetLink = `${base}/?resetToken=${encodeURIComponent(
+  token
+)}&email=${encodeURIComponent(usuario.email)}`;
 
     let emailEnviado = false;
 
@@ -438,6 +441,42 @@ app.post("/auth/reset-confirmar", async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error("Erro em /auth/reset-confirmar:", err);
+    res.status(500).json({ erro: "Erro ao redefinir senha." });
+  }
+});
+
+// Alias compatível com o front: /auth/reset-senha
+app.post("/auth/reset-senha", async (req, res) => {
+  try {
+    const { token, novaSenha } = req.body;
+
+    if (!token || !novaSenha) {
+      return res
+        .status(400)
+        .json({ erro: "Token e nova senha são obrigatórios." });
+    }
+
+    const usuario = await prisma.usuario.findFirst({
+      where: { reset_token: token },
+    });
+
+    if (!usuario) {
+      return res.status(400).json({ erro: "Token inválido." });
+    }
+
+    const hash = await bcrypt.hash(novaSenha, 10);
+
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        senha_hash: hash,
+        reset_token: null,
+      },
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro em /auth/reset-senha:", err);
     res.status(500).json({ erro: "Erro ao redefinir senha." });
   }
 });
