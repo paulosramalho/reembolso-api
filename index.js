@@ -854,14 +854,20 @@ app.post("/status", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { nome, descricao, ativo } = req.body;
 
-    if (!nome || !String(nome).trim()) {
-      return res.status(400).json({ erro: "Nome do status é obrigatório." });
+    // ✅ Agora aceitamos tanto "nome" quanto "descricao"
+    const nomeFinal = String(nome ?? descricao ?? "").trim();
+
+    if (!nomeFinal) {
+      return res
+        .status(400)
+        .json({ erro: "Nome do status é obrigatório." });
     }
 
     const novo = await prisma.status.create({
       data: {
-        nome: String(nome).trim(),
-        descricao: descricao || null,
+        nome: nomeFinal,
+        // mantém a descricao se vier, senão deixa nulo
+        descricao: descricao ?? null,
         ativo: ativo !== undefined ? !!ativo : true,
       },
     });
@@ -927,6 +933,21 @@ app.patch("/status/:id", authMiddleware, adminOnly, async (req, res) => {
   } catch (err) {
     console.error("Erro em PATCH /status/:id:", err);
     res.status(500).json({ erro: "Erro ao atualizar status." });
+  }
+});
+
+app.delete("/status/:id", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.status.delete({
+      where: { id: Number(id) },
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro em DELETE /status/:id:", err);
+    res.status(500).json({ erro: "Erro ao excluir status." });
   }
 });
 
