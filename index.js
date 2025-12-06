@@ -1277,8 +1277,30 @@ app.post("/solicitacoes", authMiddleware, async (req, res) => {
       dataCriar[campo] = valor;
     }
 
-    if (!dataCriar.status) {
+        if (!dataCriar.status) {
       dataCriar.status = dados.status || "Em análise";
+    }
+
+    // 🔒 Validação global de NF duplicada
+    if (dataCriar.numero_nf) {
+      const nf = String(dataCriar.numero_nf).trim();
+
+      if (nf) {
+        const jaExiste = await prisma.solicitacao.findFirst({
+          where: {
+            numero_nf: nf,
+          },
+        });
+
+        if (jaExiste) {
+          return res.status(400).json({
+            erro: "Já existe uma solicitação cadastrada com essa Nota Fiscal / Receita Saúde.",
+          });
+        }
+
+        // garante que salvamos a NF normalizada
+        dataCriar.numero_nf = nf;
+      }
     }
 
     const nova = await prisma.solicitacao.create({
@@ -1441,6 +1463,38 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
     if (Object.keys(dataAtualizar).length === 0) {
       return res.json(existente);
     }
+
+    // 🔒 Validação global de NF duplicada também na edição
+    if (Object.prototype.hasOwnProperty.call(dataAtualizar, "numero_nf")) {
+      const nf = dataAtualizar.numero_nf
+        ? String(dataAtualizar.numero_nf).trim()
+        : "";
+
+      if (nf) {
+        const jaExiste = await prisma.solicitacao.findFirst({
+          where: {
+            numero_nf: nf,
+            NOT: { id: solicitacaoId },
+          },
+        });
+
+        if (jaExiste) {
+          return res.status(400).json({
+            erro: "Já existe uma solicitação cadastrada com essa nota fiscal.",
+          });
+        }
+
+        dataAtualizar.numero_nf = nf;
+      } else {
+        // se vier vazio, zera a NF
+        dataAtualizar.numero_nf = null;
+      }
+    }
+
+    const atualizado = await prisma.solicitacao.update({
+      where: { id: solicitacaoId },
+      data: dataAtualizar,
+    });
 
     const atualizado = await prisma.solicitacao.update({
       where: { id: solicitacaoId },
