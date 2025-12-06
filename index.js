@@ -1023,9 +1023,16 @@ app.get("/solicitacoes/usuario/:id", authMiddleware, async (req, res) => {
 // =========================
 // 🔰 SOLICITAÇÕES — LISTAR TODAS (ADMIN)
 // =========================
-app.get("/solicitacoes", authMiddleware, adminOnly, async (req, res) => {
+app.get("/solicitacoes", authMiddleware, async (req, res) => {
   try {
+    const where = {};
+    // Se não for admin, só enxerga as próprias solicitações
+    if (!req.user || req.user.tipo !== "admin") {
+      where.usuario_id = req.user.id;
+    }
+
     const registros = await prisma.solicitacao.findMany({
+      where,
       orderBy: { criado_em: "desc" },
       include: {
         arquivos: true,
