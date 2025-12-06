@@ -851,6 +851,55 @@ function normalizarData(valor) {
   return d;
 }
 
+/**
+ * Tenta descobrir a "data da movimentação" vinda do front.
+ * Aceita vários nomes de campo, em ordem de prioridade.
+ */
+function getDataMovimentacaoFromBody(body) {
+  if (!body) return null;
+
+  const candidatos = [
+    body.data_movimentacao,
+    body.dataMovimentacao,
+    body.data_ultima_mudanca,
+    body.dataUltimaMudanca,
+    body.data // fallback
+  ];
+
+  for (const v of candidatos) {
+    const dt = normalizarData(v);
+    if (dt) return dt;
+  }
+
+  return null;
+}
+
+/**
+ * Tenta descobrir o campo de observação/motivo vindo do front.
+ * Aceita vários nomes de campo.
+ */
+function getObsFromBody(body) {
+  if (!body) return null;
+
+  const campos = [
+    "obs",
+    "observacao",
+    "motivo",
+    "motivoObs",
+    "motivo_observacao",
+    "descricao"
+  ];
+
+  for (const c of campos) {
+    if (body[c] !== undefined && body[c] !== null) {
+      const txt = String(body[c]).trim();
+      if (txt) return txt;
+    }
+  }
+
+  return null;
+}
+
 // =========================
 // 🔰 SOLICITAÇÕES — CRIAR
 // =========================
@@ -966,50 +1015,18 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
 
     const dataAtualizar = {};
     let statusMudou = false;
-    let dataMovimentacao = null; // 📌 Data da movimentação (modal)
+let dataMovimentacao = null; // 📌 Data da movimentação (modal)
+...
+if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
+  // 📌 SEMPRE usar a "data da movimentação" vinda do modal
+  dataMovimentacao = getDataMovimentacaoFromBody(dados) || new Date();
+  dataAtualizar.data_ultima_mudanca = dataMovimentacao;
 
-    for (const campo of camposPermitidos) {
-      if (!Object.prototype.hasOwnProperty.call(dados, campo)) continue;
-
-      let valor = dados[campo];
-
-      if (valor === undefined) continue;
-
-      if (campo === "usuario_id") {
-        const idNum = Number(valor);
-        if (!Number.isNaN(idNum) && idNum > 0) {
-          dataAtualizar.usuario_id = idNum;
-        }
-        continue;
-      }
-
-      if (camposNumericos.includes(campo)) {
-        const num = normalizarNumero(valor);
-        if (num === null) continue;
-        dataAtualizar[campo] = num;
-        continue;
-      }
-
-      if (camposData.includes(campo)) {
-        const dt = normalizarData(valor);
-        if (!dt) continue;
-        dataAtualizar[campo] = dt;
-        continue;
-      }
-
-      dataAtualizar[campo] = valor;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(dataAtualizar, "status")) {
-      // 📌 usa SEMPRE a data do modal como data da movimentação
-      dataMovimentacao = normalizarData(dados.data) || new Date();
-      dataAtualizar.data_ultima_mudanca = dataMovimentacao;
-
-      const novoStatus = dataAtualizar.status;
-      if (novoStatus && novoStatus !== statusAntes) {
-        statusMudou = true;
-      }
-    }
+  const novoStatus = dataAtualizar.status;
+  if (novoStatus && novoStatus !== statusAntes) {
+    statusMudou = true;
+  }
+}
 
     if (Object.keys(dataAtualizar).length === 0) {
       return res.json(existente);
@@ -1022,32 +1039,29 @@ app.put("/solicitacoes/:id", authMiddleware, async (req, res) => {
 
     // 🔹 Se o status mudou (via edição genérica), registra no histórico
     if (statusMudou) {
-      const Historico = getHistoricoModel();
-      if (Historico) {
-        try {
-          const obsHistorico =
-            dados.obs ?? dados.observacao ?? null;
+  const Historico = getHistoricoModel();
+  if (Historico) {
+    try {
+      const obsHistorico = getObsFromBody(dados);
+      const dataHistorico = dataMovimentacao || new Date();
 
-          const dataHistorico =
-            dataMovimentacao || normalizarData(dados.data) || new Date();
-
-          await Historico.create({
-            data: {
-              solicitacao_id: solicitacaoId,
-              status: atualizado.status,
-              data: dataHistorico,
-              origem: "Edição",
-              obs: obsHistorico,
-            },
-          });
-        } catch (errHist) {
-          console.error(
-            "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
-            errHist
-          );
-        }
-      }
+      await Historico.create({
+        data: {
+          solicitacao_id: solicitacaoId,
+          status: atualizado.status,
+          data: dataHistorico,
+          origem: "Edição",
+          obs: obsHistorico,
+        },
+      });
+    } catch (errHist) {
+      console.error(
+        "Erro ao gravar histórico de alteração de status (PUT /solicitacoes/:id):",
+        errHist
+      );
     }
+  }
+}
 
     res.json(atualizado);
   } catch (err) {
@@ -1401,17 +1415,8 @@ app.put(
       const { id } = req.params;
       const { status, origem } = req.body;
 
-      // 📌 Observação pode vir como "obs" ou "observacao"
-      const rawObs =
-        req.body.obs !== undefined
-          ? req.body.obs
-          : req.body.observacao !== undefined
-          ? req.body.observacao
-          : null;
-      const textoObs =
-        rawObs !== null && rawObs !== undefined
-          ? String(rawObs).trim()
-          : "";
+// 📌 Observação / motivo (aceita vários nomes de campo)
+const textoObs = getObsFromBody(req.body) || "";
 
       // 📌 Motivo obrigatório p/ Aguardando documento OU Rejeitado
       const motivoObrigatorio =
@@ -1437,9 +1442,9 @@ app.put(
         });
       }
 
-      // 📌 Data da movimentação — sempre a do modal
-      const dataMovimentacao =
-        normalizarData(req.body.data) || new Date();
+      // 📌 Data da movimentação — sempre a do modal (em qualquer campo reconhecido)
+const dataMovimentacao =
+  getDataMovimentacaoFromBody(req.body) || new Date();
 
       const atualizado = await prisma.solicitacao.update({
         where: { id: Number(id) },
