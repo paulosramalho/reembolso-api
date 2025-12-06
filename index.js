@@ -804,6 +804,34 @@ app.put("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
+// PATCH /descricoes/:id — alias do PUT para compatibilidade com o front
+app.patch("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { descricao, ativo } = req.body;
+
+    const [atualizado] = await prisma.$queryRaw`
+      UPDATE descricoes
+      SET
+        descricao = COALESCE(${
+          descricao !== undefined ? String(descricao).trim() : null
+        }, descricao),
+        ativo = COALESCE(${ativo !== undefined ? !!ativo : null}, ativo)
+      WHERE id = ${Number(id)}
+      RETURNING id, descricao, ativo;
+    `;
+
+    if (!atualizado) {
+      return res.status(404).json({ erro: "Descrição não encontrada." });
+    }
+
+    res.json(atualizado);
+  } catch (err) {
+    console.error("Erro em PATCH /descricoes/:id:", err);
+    res.status(500).json({ erro: "Erro ao atualizar descrição." });
+  }
+});
+
 app.delete("/descricoes/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
@@ -875,6 +903,29 @@ app.put("/status/:id", authMiddleware, adminOnly, async (req, res) => {
     res.json(atualizado);
   } catch (err) {
     console.error("Erro em PUT /status/:id:", err);
+    res.status(500).json({ erro: "Erro ao atualizar status." });
+  }
+});
+
+// PATCH /status/:id — alias do PUT para compatibilidade com o front
+app.patch("/status/:id", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nome, descricao, ativo } = req.body;
+
+    const data = {};
+    if (nome !== undefined) data.nome = String(nome).trim();
+    if (descricao !== undefined) data.descricao = descricao || null;
+    if (ativo !== undefined) data.ativo = !!ativo;
+
+    const atualizado = await prisma.status.update({
+      where: { id: Number(id) },
+      data,
+    });
+
+    res.json(atualizado);
+  } catch (err) {
+    console.error("Erro em PATCH /status/:id:", err);
     res.status(500).json({ erro: "Erro ao atualizar status." });
   }
 });
