@@ -837,11 +837,31 @@ function normalizarData(valor) {
 
   const s = String(valor).trim();
 
+  // 🔹 Formato ISO "YYYY-MM-DD"
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
     const d = new Date(s + "T00:00:00.000Z");
     if (isNaN(d.getTime())) return null;
     return d;
   }
+
+  // 🔹 Formato brasileiro "DD/MM/AAAA"
+  const mBR = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+  const matchBR = s.match(mBR);
+  if (matchBR) {
+    const dia = Number(matchBR[1]);
+    const mes = Number(matchBR[2]) - 1; // 0–11
+    const ano = Number(matchBR[3]);
+
+    const d = new Date(ano, mes, dia); // meia-noite no fuso local
+    if (isNaN(d.getTime())) return null;
+    return d;
+  }
+
+  // 🔹 Qualquer outro formato que o JS consiga entender
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return null;
+  return d;
+}
 
   const d = new Date(s);
   if (isNaN(d.getTime())) return null;
@@ -1449,8 +1469,20 @@ app.put(
       const { id } = req.params;
       const { status, origem } = req.body;
 
-      // 📌 Observação / motivo (aceita vários nomes de campo)
-      const textoObs = getObsFromBody(req.body) || "";
+            // 📌 Observação / motivo (Kanban) — aqui NÃO usamos "descricao" para evitar herdar "Consulta"
+      const textoObsRaw =
+        req.body.obs ??
+        req.body.observacao ??
+        req.body.motivo ??
+        req.body.motivoObs ??
+        req.body["motivo_observacao"] ??
+        "";
+
+      const textoObs =
+        textoObsRaw !== null && textoObsRaw !== undefined
+          ? String(textoObsRaw).trim()
+          : "";
+
 
       // 📌 Motivo obrigatório para "Aguardando documento" e "Rejeitado"
       const motivoObrigatorio =
